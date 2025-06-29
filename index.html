@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dhruv CLI - AI-Powered Developer Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/rahul05ranjan/dhruv-cli/docs/dhruv-favicon.png">
+  <style>
+    :root {
+      --primary: #eebf63;
+      --bg: #181c2f;
+      --bg2: #232946;
+      --text: #f4f4f4;
+      --text2: #a1a6b4;
+      --accent: #5f6fff;
+      --shadow: 0 4px 24px #0003;
+      --radius: 1rem;
+      --transition: 0.2s cubic-bezier(.4,2,.6,1);
+    }
+    [data-theme="light"] {
+      --bg: #f4f4f4;
+      --bg2: #fff;
+      --text: #232946;
+      --text2: #555;
+      --accent: #5f6fff;
+      --shadow: 0 4px 24px #0001;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 100%);
+      color: var(--text);
+      transition: background 0.5s, color 0.5s;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 220px;
+      height: 100vh;
+      background: var(--bg2);
+      box-shadow: 2px 0 16px #0002;
+      padding: 2rem 1rem 1rem 1rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      transition: left var(--transition);
+    }
+    .sidebar h2 {
+      font-size: 1.3rem;
+      color: var(--primary);
+      margin: 0 0 1rem 0;
+      letter-spacing: 1px;
+    }
+    .sidebar nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .sidebar a {
+      color: var(--text2);
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.3em 0.7em;
+      border-radius: 6px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .sidebar a.active, .sidebar a:hover {
+      background: var(--primary);
+      color: var(--bg2);
+    }
+    .theme-toggle {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      cursor: pointer;
+      color: var(--primary);
+      font-size: 1.1em;
+      user-select: none;
+    }
+    .main {
+      margin-left: 240px;
+      padding: 2.5rem 2rem 2rem 2rem;
+      flex: 1;
+      transition: margin-left var(--transition);
+    }
+    @media (max-width: 900px) {
+      .sidebar { position: static; width: 100vw; height: auto; flex-direction: row; align-items: center; padding: 1rem; }
+      .sidebar nav { flex-direction: row; gap: 1rem; }
+      .main { margin-left: 0; padding: 1.5rem 0.5rem; }
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .hero-logo {
+      width: 70px; height: 70px; margin-bottom: 1rem;
+      filter: drop-shadow(0 2px 8px #0005);
+      border-radius: 50%;
+      background: var(--bg2);
+      display: inline-block;
+      padding: 0.5rem;
+    }
+    .hero-title {
+      font-size: 2.7rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem 0;
+      letter-spacing: 1px;
+    }
+    .hero-animated {
+      font-size: 1.3rem;
+      color: var(--primary);
+      min-height: 2.2em;
+      font-family: 'Fira Mono', monospace;
+      margin-bottom: 1.2rem;
+      animation: fadeIn 1.2s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: none; }
+    }
+    .hero-install {
+      display: inline-block;
+      background: var(--primary);
+      color: var(--bg2);
+      font-family: 'Fira Mono', monospace;
+      font-size: 1.1em;
+      padding: 0.5em 1.2em;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px #0002;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      border: none;
+    }
+    .hero-install:hover { background: var(--accent); color: #fff; }
+    .badges {
+      margin: 1.2rem 0 0.5rem 0;
+      display: flex;
+      justify-content: center;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+    .badges img { height: 28px; }
+    .terminal-demo {
+      background: #181c2f;
+      border-radius: 1rem;
+      box-shadow: var(--shadow);
+      max-width: 600px;
+      margin: 2rem auto 2.5rem auto;
+      padding: 1.5rem 1.2rem 1.2rem 1.2rem;
+      font-family: 'Fira Mono', monospace;
+      color: #eebf63;
+      position: relative;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      margin-bottom: 1em;
+    }
+    .term-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .term-dot.red { background: #ff5f56; }
+    .term-dot.yellow { background: #ffbd2e; }
+    .term-dot.green { background: #27c93f; }
+    .terminal-content {
+      min-height: 2.5em;
+      font-size: 1.1em;
+      white-space: pre-line;
+      word-break: break-word;
+      transition: color 0.2s;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 1.2rem; right: 1.2rem;
+      background: var(--primary);
+      color: var(--bg2);
+      border: none;
+      border-radius: 6px;
+      padding: 0.2em 0.7em;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      opacity: 0.85;
+    }
+    .copy-btn:hover { background: var(--accent); color: #fff; }
+    .tabs {
+      display: flex;
+      gap: 1.2rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--bg2);
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 0.5em 1.2em;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 1.1em;
+      font-weight: 500;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      outline: none;
+    }
+    .tab.active, .tab:hover {
+      background: var(--primary);
+      color: var(--bg2);
+    }
+    .tab-content { display: none; animation: fadeIn 0.7s; }
+    .tab-content.active { display: block; }
+    .collapsible {
+      background: var(--bg2);
+      color: var(--text);
+      cursor: pointer;
+      padding: 1em;
+      width: 100%;
+      border: none;
+      text-align: left;
+      outline: none;
+      font-size: 1.1em;
+      border-radius: 8px;
+      margin-bottom: 0.5em;
+      transition: background var(--transition);
+    }
+    .collapsible.active, .collapsible:hover {
+      background: var(--primary);
+      color: var(--bg2);
+    }
+    .collapsible-content {
+      padding: 0 1em 1em 1em;
+      display: none;
+      background: var(--bg2);
+      border-radius: 0 0 8px 8px;
+      margin-bottom: 1em;
+      animation: fadeIn 0.5s;
+    }
+    .collapsible-content.active { display: block; }
+    code, pre {
+      font-family: 'Fira Mono', monospace;
+      background: #181c2f;
+      color: #eebf63;
+      border-radius: 6px;
+      padding: 0.2em 0.5em;
+      font-size: 1em;
+    }
+    .plugin-example {
+      background: #181c2f;
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0.5rem;
+      font-size: 1em;
+      color: var(--text);
+    }
+    .community {
+      margin: 2.5rem 0 1.5rem 0;
+      text-align: center;
+    }
+    .community a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      margin: 0 0.7em;
+      transition: color var(--transition);
+    }
+    .community a:hover { color: var(--accent); }
+    footer {
+      text-align: center;
+      color: var(--text2);
+      padding: 2rem 0 1rem 0;
+      font-size: 1rem;
+    }
+    @media (max-width: 700px) {
+      .main { padding: 1rem 0.2rem; }
+      .sidebar { padding: 0.7rem; }
+      .hero-title { font-size: 2rem; }
+      .terminal-demo { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Dhruv CLI</h2>
+    <nav>
+      <a href="#hero" class="active">Home</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#usage">Usage</a>
+      <a href="#plugins">Plugins</a>
+      <a href="#community">Community</a>
+    </nav>
+    <div class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+      <span id="themeIcon">🌙</span> <span id="themeLabel">Dark</span>
+    </div>
+  </div>
+  <main class="main">
+    <section class="hero" id="hero">
+      <img src="https://cdn.jsdelivr.net/gh/rahul05ranjan/dhruv-cli/docs/dhruv-favicon.png" alt="Dhruv CLI Logo" class="hero-logo" />
+      <div class="hero-title">Dhruv CLI</div>
+      <div class="hero-animated" id="animatedTagline"></div>
+      <button class="hero-install" onclick="copyInstall()" id="installBtn">npm install -g dhruv-cli <span style='font-size:0.9em;' id='copyIcon'>📋</span></button>
+      <div class="badges">
+        <img src="https://img.shields.io/github/stars/rahul05ranjan/dhruv-cli?style=social" alt="GitHub stars">
+        <img src="https://img.shields.io/npm/v/dhruv-cli?color=blue&label=npm" alt="npm version">
+        <img src="https://img.shields.io/github/workflow/status/rahul05ranjan/dhruv-cli/CI?label=build" alt="build status">
+        <img src="https://img.shields.io/github/license/rahul05ranjan/dhruv-cli?color=green" alt="license">
+      </div>
+    </section>
+    <section class="terminal-demo" id="features">
+      <div class="terminal-bar">
+        <span class="term-dot red"></span>
+        <span class="term-dot yellow"></span>
+        <span class="term-dot green"></span>
+        <span style="margin-left:1em;color:#a1a6b4;font-size:1em;">dhruv@cli:~$</span>
+      </div>
+      <div class="terminal-content" id="terminalContent"></div>
+      <button class="copy-btn" onclick="copyTerminal()" id="copyTermBtn">Copy</button>
+    </section>
+    <div class="tabs">
+      <button class="tab active" data-tab="featuresTab">Features</button>
+      <button class="tab" data-tab="installTab">Install</button>
+      <button class="tab" data-tab="usageTab">Usage</button>
+      <button class="tab" data-tab="pluginsTab">Plugins</button>
+      <button class="tab" data-tab="communityTab">Community</button>
+    </div>
+    <section class="tab-content active" id="featuresTab">
+      <button class="collapsible">🧠 Smart Suggestions</button>
+      <div class="collapsible-content">
+        <ul>
+          <li>AI-powered suggestions, explanations, and fixes for any dev task.</li>
+          <li>Project context detection (Node, React, Python, etc.).</li>
+        </ul>
+      </div>
+      <button class="collapsible">🔍 Code Review & Security</button>
+      <div class="collapsible-content">
+        <ul>
+          <li>Review, optimize, and check your code for security issues with a single command.</li>
+          <li>Test/code generation for any file or project.</li>
+        </ul>
+      </div>
+      <button class="collapsible">⚡ Streaming & UX</button>
+      <div class="collapsible-content">
+        <ul>
+          <li>Streaming output, syntax highlighting, progress bars, colored errors, and interactive menus.</li>
+          <li>Beautiful, modern CLI design with theme support.</li>
+        </ul>
+      </div>
+      <button class="collapsible">🧩 Plugin System</button>
+      <div class="collapsible-content">
+        <ul>
+          <li>Drop ESM modules in <code>plugins/</code> to add new commands.</li>
+          <li>Fully extensible and open source.</li>
+        </ul>
+      </div>
+    </section>
+    <section class="tab-content" id="installTab">
+      <h2>Install</h2>
+      <pre><code>npm install -g dhruv-cli</code></pre>
+      <p>Requires <a href="https://nodejs.org/" target="_blank">Node.js</a> 18+ and <a href="https://ollama.com/" target="_blank">Ollama</a> for local AI models.</p>
+    </section>
+    <section class="tab-content" id="usageTab">
+      <h2>Usage Examples</h2>
+      <pre><code>dhruv suggest "deploy react app to vercel"
+dhruv explain "git rebase vs merge"
+dhruv fix "cors error in express"
+dhruv review src/
+dhruv optimize package.json
+dhruv security-check src/
+dhruv generate tests src/utils/helpers.js
+dhruv init
+dhruv completion bash &gt; dhruv-complete.sh</code></pre>
+      <h3>All Commands</h3>
+      <ul>
+        <li><b>suggest</b> <code>&lt;query&gt;</code> — Smart suggestions for any dev task</li>
+        <li><b>explain</b> <code>&lt;query&gt;</code> — Explain concepts, errors, or commands</li>
+        <li><b>fix</b> <code>&lt;query&gt;</code> — Get AI-powered fixes for errors</li>
+        <li><b>review</b> <code>&lt;fileOrDir&gt;</code> — Review code for improvements</li>
+        <li><b>optimize</b> <code>&lt;file&gt;</code> — Optimize files (e.g., <code>package.json</code>)</li>
+        <li><b>security-check</b> <code>[fileOrDir]</code> — Security analysis of code</li>
+        <li><b>generate</b> <code>&lt;type&gt; &lt;target&gt;</code> — Generate code/tests</li>
+        <li><b>init</b> — Interactive setup/configuration wizard</li>
+        <li><b>completion</b> <code>[shell]</code> — Output shell completion script</li>
+        <li><b>project-type</b> — Detect project type</li>
+        <li><b>hello-plugin</b> — Example plugin command</li>
+      </ul>
+    </section>
+    <section class="tab-content" id="pluginsTab">
+      <h2>Plugin Example</h2>
+      <div class="plugin-example">
+        <pre><code>export default (program) =&gt; {
+  program.command('hello-plugin').action(() =&gt; console.log('Hello from plugin!'));
+};</code></pre>
+      </div>
+      <ul>
+        <li>Add new commands by dropping ESM modules in the <code>plugins/</code> directory.</li>
+        <li>Plugins are loaded automatically before CLI parsing.</li>
+      </ul>
+    </section>
+    <section class="tab-content" id="communityTab">
+      <div class="community" id="community">
+        <h2>Open Source & Community</h2>
+        <p>Dhruv CLI is fully open source and welcomes contributions!</p>
+        <a href="https://github.com/rahul05ranjan/dhruv-cli" target="_blank">GitHub Repo</a>
+        <a href="https://github.com/rahul05ranjan/dhruv-cli/issues" target="_blank">Issues</a>
+        <a href="https://github.com/rahul05ranjan/dhruv-cli/pulls" target="_blank">Pull Requests</a>
+        <a href="https://github.com/rahul05ranjan/dhruv-cli/blob/main/CONTRIBUTING.md" target="_blank">Contributing Guide</a>
+        <div style="margin-top:1.2em;">
+          <img src="https://img.shields.io/github/contributors/rahul05ranjan/dhruv-cli?color=blue" alt="contributors">
+          <img src="https://img.shields.io/github/issues/rahul05ranjan/dhruv-cli?color=orange" alt="issues">
+          <img src="https://img.shields.io/github/last-commit/rahul05ranjan/dhruv-cli?color=green" alt="last commit">
+        </div>
+      </div>
+    </section>
+    <div class="section">
+      <h2>Configuration & Context</h2>
+      <ul>
+        <li>Run <code>dhruv init</code> to set model, response format, and verbosity.</li>
+        <li>Project type is auto-detected for context-aware suggestions.</li>
+        <li>Works offline with local Ollama models.</li>
+      </ul>
+    </div>
+  </main>
+  <footer>
+    <div>MIT License &copy; 2025 &mdash; Dhruv CLI</div>
+    <div>Made with ❤️ for developers</div>
+  </footer>
+  <script>
+    // Animated tagline
+    const taglines = [
+      'Your AI Pair Programmer in the Terminal',
+      'Smart suggestions, code review, and more',
+      'Powered by Ollama. Fully offline. Open source.',
+      'Beautiful CLI UX. Plugin system. Community-driven.'
+    ];
+    let taglineIdx = 0;
+    function animateTagline() {
+      const el = document.getElementById('animatedTagline');
+      el.textContent = '';
+      let txt = taglines[taglineIdx];
+      let i = 0;
+      function type() {
+        if (i < txt.length) {
+          el.textContent += txt.charAt(i);
+          i++;
+          setTimeout(type, 28);
+        } else {
+          setTimeout(() => {
+            taglineIdx = (taglineIdx + 1) % taglines.length;
+            animateTagline();
+          }, 1800);
+        }
+      }
+      type();
+    }
+    animateTagline();
+
+    // Terminal demo animation
+    const terminalLines = [
+      'dhruv suggest "deploy react app to vercel"',
+      'dhruv explain "git rebase vs merge"',
+      'dhruv fix "cors error in express"',
+      'dhruv review src/',
+      'dhruv optimize package.json',
+      'dhruv security-check src/',
+      'dhruv generate tests src/utils/helpers.js',
+      'dhruv init',
+      'dhruv completion bash > dhruv-complete.sh'
+    ];
+    let termIdx = 0;
+    function animateTerminal() {
+      const el = document.getElementById('terminalContent');
+      el.textContent = '';
+      let txt = terminalLines[termIdx];
+      let i = 0;
+      function type() {
+        if (i < txt.length) {
+          el.textContent += txt.charAt(i);
+          i++;
+          setTimeout(type, 18);
+        } else {
+          setTimeout(() => {
+            termIdx = (termIdx + 1) % terminalLines.length;
+            animateTerminal();
+          }, 1200);
+        }
+      }
+      type();
+    }
+    animateTerminal();
+
+    // Copy install command
+    function copyInstall() {
+      navigator.clipboard.writeText('npm install -g dhruv-cli');
+      const btn = document.getElementById('installBtn');
+      const icon = document.getElementById('copyIcon');
+      icon.textContent = '✅';
+      setTimeout(() => { icon.textContent = '📋'; }, 1200);
+    }
+    // Copy terminal command
+    function copyTerminal() {
+      const el = document.getElementById('terminalContent');
+      navigator.clipboard.writeText(el.textContent);
+      const btn = document.getElementById('copyTermBtn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+    }
+    // Tabs
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        tabContents.forEach(tc => tc.classList.remove('active'));
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+    // Collapsible
+    const collapsibles = document.querySelectorAll('.collapsible');
+    collapsibles.forEach(btn => {
+      btn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        const content = this.nextElementSibling;
+        content.classList.toggle('active');
+      });
+    });
+    // Sidebar nav scrollspy
+    const navLinks = document.querySelectorAll('.sidebar nav a');
+    const sections = [
+      document.getElementById('hero'),
+      document.getElementById('features'),
+      document.getElementById('installTab'),
+      document.getElementById('usageTab'),
+      document.getElementById('pluginsTab'),
+      document.getElementById('community')
+    ];
+    window.addEventListener('scroll', () => {
+      let idx = 0;
+      for (let i = 0; i < sections.length; i++) {
+        if (sections[i] && sections[i].getBoundingClientRect().top < 120) idx = i;
+      }
+      navLinks.forEach(l => l.classList.remove('active'));
+      if (navLinks[idx]) navLinks[idx].classList.add('active');
+    });
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeLabel = document.getElementById('themeLabel');
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      if (theme === 'light') {
+        themeIcon.textContent = '☀️';
+        themeLabel.textContent = 'Light';
+      } else {
+        themeIcon.textContent = '🌙';
+        themeLabel.textContent = 'Dark';
+      }
+      localStorage.setItem('dhruv-theme', theme);
+    }
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+    // Load theme
+    setTheme(localStorage.getItem('dhruv-theme') || 'dark');
+  </script>
+</body>
+</html>
