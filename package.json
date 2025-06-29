@@ -1,6 +1,6 @@
 {
   "name": "@rahul05ranjan/dhruv-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered CLI assistant for developers using Ollama",
   "keywords": [
     "ai",
