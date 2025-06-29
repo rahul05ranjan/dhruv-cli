@@ -39,3 +39,5 @@ jobs:
         with:
           types: feat,fix,chore,docs,refactor,style,test,ci
           githubBaseUrl: https://api.github.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
