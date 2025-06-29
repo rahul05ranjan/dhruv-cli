@@ -7,7 +7,8 @@ export async function init() {
   let modelChoices = [current.model];
   try {
     // Dynamically import node-fetch for compatibility
-    const fetch = (await import('node-fetch')).default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetch: any = (await import('node-fetch')).default;
     // Fetch models from Ollama REST API
     const res = await fetch('http://localhost:11434/api/tags');
     if (res.ok) {
