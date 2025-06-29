@@ -1,5 +1,7 @@
 # Dhruv CLI
 
+[📖 View Documentation on GitHub Pages](https://rahul05ranjan.github.io/dhruv-cli/)
+
 AI-powered CLI assistant for developers using Ollama.
 
 ## 🚀 Features
