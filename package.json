@@ -33,10 +33,11 @@
     "ora": "^7.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.30.0",
     "@types/inquirer": "^9.0.8",
     "@types/node": "^24.0.7",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.0"
+    "typescript": "^5.8.3"
   },
   "repository": {
     "type": "git",
