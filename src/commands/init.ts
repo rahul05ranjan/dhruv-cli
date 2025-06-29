@@ -1,12 +1,13 @@
 import inquirer from 'inquirer';
 import { saveConfig, loadConfig } from '../config/config.js';
 import chalk from 'chalk';
-import fetch from 'node-fetch';
 
 export async function init() {
   const current = loadConfig();
   let modelChoices = [current.model];
   try {
+    // Dynamically import node-fetch for compatibility
+    const fetch = (await import('node-fetch')).default;
     // Fetch models from Ollama REST API
     const res = await fetch('http://localhost:11434/api/tags');
     if (res.ok) {
