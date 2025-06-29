@@ -13,13 +13,14 @@ import { generate } from './commands/generate.js';
 import { init } from './commands/init.js';
 import { detectProjectType } from './utils/projectType.js';
 import { menu } from './commands/menu.js';
+import pkg from '../package.json' assert { type: 'json' };
 
 const program = new Command();
 
 program
   .name('dhruv')
   .description('AI-powered CLI assistant for developers using Ollama')
-  .version('1.0.0');
+  .version(pkg.version);
 
 program
   .command('explain <query>')

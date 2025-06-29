@@ -8,8 +8,10 @@ export async function explain(query: string) {
   const config = loadConfig();
   const spinner = ora('Thinking...').start();
   let streamed = '';
+  const dhruvIntro = chalk.yellowBright('Dhruv CLI: Your AI-powered CLI assistant for developers using Ollama.\n');
   try {
     spinner.stop();
+    process.stdout.write(dhruvIntro); // Print Dhruv intro before explanation
     process.stdout.write(chalk.green('Explanation: '));
     await askOllama({
       prompt: `Explain: ${query}`,
