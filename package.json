@@ -48,6 +48,6 @@
     "url": "git+https://github.com/rahul05ranjan/ollama-cli.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com/"
+    "registry": "https://registry.npmjs.org/"
   }
 }
