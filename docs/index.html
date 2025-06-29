@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dhruv CLI - AI-Powered Developer Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: linear-gradient(135deg, #181c2f 0%, #232946 100%);
+      color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #232946;
+      padding: 2rem 0 1rem 0;
+      text-align: center;
+      box-shadow: 0 2px 8px #0002;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin: 0 0 0.5rem 0;
+      letter-spacing: 1px;
+    }
+    .subtitle {
+      color: #a1a6b4;
+      font-size: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+    .feature {
+      background: #232946;
+      border-radius: 1rem;
+      box-shadow: 0 4px 24px #0003;
+      padding: 2rem 1.5rem;
+      max-width: 320px;
+      min-width: 240px;
+      flex: 1 1 240px;
+      transition: transform 0.2s;
+    }
+    .feature:hover {
+      transform: translateY(-6px) scale(1.03);
+      box-shadow: 0 8px 32px #0005;
+    }
+    .feature h2 {
+      color: #eebf63;
+      font-size: 1.3rem;
+      margin-top: 0;
+    }
+    code, pre {
+      font-family: 'Fira Mono', monospace;
+      background: #181c2f;
+      color: #eebf63;
+      border-radius: 6px;
+      padding: 0.2em 0.5em;
+      font-size: 1em;
+    }
+    .section {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: #232946;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0002;
+    }
+    .section h2 {
+      color: #eebf63;
+      margin-top: 0;
+    }
+    .plugin-example {
+      background: #181c2f;
+      border-left: 4px solid #eebf63;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0.5rem;
+      font-size: 1em;
+      color: #f4f4f4;
+    }
+    footer {
+      text-align: center;
+      color: #a1a6b4;
+      padding: 2rem 0 1rem 0;
+      font-size: 1rem;
+    }
+    @media (max-width: 700px) {
+      .features { flex-direction: column; align-items: center; }
+      .section { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dhruv CLI</h1>
+    <div class="subtitle">Your AI Pair Programmer in the Terminal</div>
+    <code>npm install -g dhruv</code>
+  </header>
+  <div class="features">
+    <div class="feature">
+      <h2>🧠 Smart Suggestions</h2>
+      <p>Get instant AI-powered suggestions, explanations, and fixes for any dev task.</p>
+      <pre><code>dhruv suggest "deploy react app to vercel"</code></pre>
+    </div>
+    <div class="feature">
+      <h2>🔍 Code Review &amp; Security</h2>
+      <p>Review, optimize, and check your code for security issues with a single command.</p>
+      <pre><code>dhruv review src/
+dhruv security-check src/</code></pre>
+    </div>
+    <div class="feature">
+      <h2>⚡ Streaming &amp; UX</h2>
+      <p>Enjoy streaming output, syntax highlighting, progress bars, and beautiful CLI design.</p>
+      <pre><code>dhruv explain "async/await vs promises"</code></pre>
+    </div>
+    <div class="feature">
+      <h2>🧩 Plugin System</h2>
+      <p>Extend Dhruv with your own commands by dropping ESM modules in <code>plugins/</code>.</p>
+      <pre><code>dhruv hello-plugin</code></pre>
+    </div>
+  </div>
+  <div class="section">
+    <h2>All Commands</h2>
+    <ul>
+      <li><b>suggest</b> <code>&lt;query&gt;</code> — Smart suggestions for any dev task</li>
+      <li><b>explain</b> <code>&lt;query&gt;</code> — Explain concepts, errors, or commands</li>
+      <li><b>fix</b> <code>&lt;query&gt;</code> — Get AI-powered fixes for errors</li>
+      <li><b>review</b> <code>&lt;fileOrDir&gt;</code> — Review code for improvements</li>
+      <li><b>optimize</b> <code>&lt;file&gt;</code> — Optimize files (e.g., <code>package.json</code>)</li>
+      <li><b>security-check</b> <code>[fileOrDir]</code> — Security analysis of code</li>
+      <li><b>generate</b> <code>&lt;type&gt; &lt;target&gt;</code> — Generate code/tests</li>
+      <li><b>init</b> — Interactive setup/configuration wizard</li>
+      <li><b>completion</b> <code>[shell]</code> — Output shell completion script</li>
+      <li><b>project-type</b> — Detect project type</li>
+      <li><b>hello-plugin</b> — Example plugin command</li>
+    </ul>
+  </div>
+  <div class="section">
+    <h2>Plugin Example</h2>
+    <div class="plugin-example">
+      <pre><code>export default (program) =&gt; {
+  program.command('hello-plugin').action(() =&gt; console.log('Hello from plugin!'));
+};</code></pre>
+    </div>
+  </div>
+  <div class="section">
+    <h2>Configuration &amp; Context</h2>
+    <ul>
+      <li>Run <code>dhruv init</code> to set model, response format, and verbosity.</li>
+      <li>Project type is auto-detected for context-aware suggestions.</li>
+      <li>Works offline with local Ollama models.</li>
+    </ul>
+  </div>
+  <footer>
+    <div>MIT License &copy; 2025 &mdash; Dhruv CLI</div>
+    <div>Made with ❤️ for developers</div>
+  </footer>
+</body>
+</html>

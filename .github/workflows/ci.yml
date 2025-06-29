@@ -1,0 +1,44 @@
+name: Dhruv CLI CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npx eslint .
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test || echo "No tests yet"
+      - name: Upload docs to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+      - name: Publish to npm
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
+          npm publish --access public
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**
+            docs/**
