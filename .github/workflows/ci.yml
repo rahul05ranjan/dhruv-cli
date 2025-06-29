@@ -45,3 +45,9 @@ jobs:
           files: |
             dist/**
             docs/**
+      - name: Release (semantic-release)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
