@@ -13,7 +13,9 @@ import { generate } from './commands/generate.js';
 import { init } from './commands/init.js';
 import { detectProjectType } from './utils/projectType.js';
 import { menu } from './commands/menu.js';
-import pkg from '../package.json' assert { type: 'json' };
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 const program = new Command();
 
