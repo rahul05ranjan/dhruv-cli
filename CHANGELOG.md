@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.1.0...v1.1.1) (2025-06-29)
+
+
+### Bug Fixes
+
+* **init:** add type declaration for dynamically imported node-fetch ([4014dc4](https://github.com/rahul05ranjan/dhruv-cli/commit/4014dc4e8f3e4779296a2d97c7526cabb1cc05ec))
+
 ## [1.1.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.0.0...v1.1.0) (2025-06-29)
 
 
