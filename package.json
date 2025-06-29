@@ -1,5 +1,5 @@
 {
-  "name": "dhruv-cli",
+  "name": "@rahul05ranjan/dhruv-cli",
   "version": "1.0.0",
   "description": "AI-powered CLI assistant for developers using Ollama",
   "keywords": [
@@ -37,5 +37,12 @@
     "@types/node": "^24.0.7",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rahul05ranjan/ollama-cli"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   }
 }
