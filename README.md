@@ -22,7 +22,7 @@ AI-powered CLI assistant for developers using Ollama.
 
 ## 🛠️ Installation
 ```bash
-npm install -g dhruv-cli
+npm install -g @rahul05ranjan/dhruv-cli
 ```
 
 ## 📝 Usage Examples
