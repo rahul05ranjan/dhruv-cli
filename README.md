@@ -1,5 +1,6 @@
 # Dhruv CLI
 
+[📦 View on npm](https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli)
 [📖 View Documentation on GitHub Pages](https://rahul05ranjan.github.io/dhruv-cli/)
 
 AI-powered CLI assistant for developers using Ollama.
@@ -24,6 +25,8 @@ AI-powered CLI assistant for developers using Ollama.
 ```bash
 npm install -g @rahul05ranjan/dhruv-cli
 ```
+
+Or visit the npm page: https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli
 
 ## 📝 Usage Examples
 ```bash

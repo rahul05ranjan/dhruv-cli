@@ -21,16 +21,18 @@ export async function askOllama({ prompt, model, onToken }: { prompt: string; mo
   try {
     let result = '';
     const ollama = new Ollama();
-    // Await the result directly (no streaming)
-    const chunk = await ollama.generate({ model: model || 'codellama', prompt });
-    let token = '';
-    if (typeof chunk === 'object' && chunk !== null && 'response' in chunk) {
-      token = (chunk as { response: string }).response;
-    } else if (typeof chunk === 'string') {
-      token = chunk;
+    // Await the iterator, then stream
+    const iterator = await ollama.generate({ model: model || 'codellama', prompt, stream: true });
+    for await (const chunk of iterator) {
+      let token = '';
+      if (typeof chunk === 'object' && chunk !== null && 'response' in chunk) {
+        token = (chunk as { response: string }).response;
+      } else if (typeof chunk === 'string') {
+        token = chunk;
+      }
+      if (onToken) onToken(token);
+      result += token;
     }
-    if (onToken) onToken(token);
-    result += token;
     fs.writeFileSync(cacheKey, result.trim());
     return result.trim();
   } catch (err) {

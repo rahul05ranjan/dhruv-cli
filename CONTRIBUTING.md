@@ -41,6 +41,17 @@ Thank you for your interest in contributing! 🎉
 
 ## Commit Message Guidelines
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+- **Allowed PR title types:**
+  - feat
+  - fix
+  - chore
+  - docs
+  - refactor
+  - style
+  - test
+  - ci
+- Example: `fix: update version to 1.1.3 and improve streaming response handling`
+- PR titles are checked automatically in CI. See `.github/workflows/contribution.yml` for details.
 
 ## Code of Conduct
 - Be respectful and inclusive. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).

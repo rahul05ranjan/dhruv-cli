@@ -37,5 +37,15 @@ jobs:
     steps:
       - uses: amannn/action-semantic-pull-request@v5
         with:
-          types: feat,fix,chore,docs,refactor,style,test,ci
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            style
+            test
+            ci
           githubBaseUrl: https://api.github.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

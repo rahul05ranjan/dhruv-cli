@@ -1,21 +1,27 @@
 # Automatically label PRs based on file paths or globs
-cli:
-  - 'src/**'
-  - 'bin/**'
-docs:
-  - 'docs/**'
-  - '**/*.md'
-ci:
-  - '.github/workflows/**'
-  - '.github/ISSUE_TEMPLATE/**'
-  - '.github/PULL_REQUEST_TEMPLATE.md'
-  - '.github/labeler.yml'
-  - '.github/auto_assign.yml'
-  - '.github/contribution.yml'
-  - '.github/stale.yml'
-  - '.github/release-please.yml'
-tests:
-  - 'tests/**'
-  - '**/*.test.*'
-plugins:
-  - 'plugins/**'
+labels:
+  - label: 'cli'
+    patterns:
+      - 'src/**'
+      - 'bin/**'
+  - label: 'docs'
+    patterns:
+      - 'docs/**'
+      - '**/*.md'
+  - label: 'ci'
+    patterns:
+      - '.github/workflows/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+      - '.github/auto_assign.yml'
+      - '.github/contribution.yml'
+      - '.github/stale.yml'
+      - '.github/release-please.yml'
+  - label: 'tests'
+    patterns:
+      - 'tests/**'
+      - '**/*.test.*'
+  - label: 'plugins'
+    patterns:
+      - 'plugins/**'
