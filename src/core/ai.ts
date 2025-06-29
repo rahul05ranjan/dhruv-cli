@@ -21,10 +21,11 @@ export async function askOllama({ prompt, model, onToken }: { prompt: string; mo
   try {
     let result = '';
     const ollama = new Ollama();
+    // Use two arguments for generate: model, prompt
     for await (const chunk of ollama.generate(model || 'codellama', prompt)) {
       let token = '';
       if (typeof chunk === 'object' && chunk !== null && 'response' in chunk) {
-        token = (chunk as unknown as { response: string }).response;
+        token = (chunk as { response: string }).response;
       } else if (typeof chunk === 'string') {
         token = chunk;
       }

@@ -1,16 +1,19 @@
 import inquirer from 'inquirer';
 import { saveConfig, loadConfig } from '../config/config.js';
 import chalk from 'chalk';
-import { Ollama } from 'ollama';
+import fetch from 'node-fetch';
 
 export async function init() {
   const current = loadConfig();
   let modelChoices = [current.model];
   try {
-    const ollama = new Ollama();
-    const tags = await ollama.tags();
-    if (Array.isArray(tags) && tags.length > 0) {
-      modelChoices = tags.map(t => t.name);
+    // Fetch models from Ollama REST API
+    const res = await fetch('http://localhost:11434/api/tags');
+    if (res.ok) {
+      const data = (await res.json()) as { models?: { name: string }[] };
+      if (Array.isArray(data.models) && data.models.length > 0) {
+        modelChoices = data.models.map((m) => m.name);
+      }
     }
   } catch {
     // If Ollama is not running or fails, fallback to current model
