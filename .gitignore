@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+.env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dhruv/Ollama CLI
+.dhruv-cache/
+.devai-cache/
+.dhruv-config.json
+.devai-config.json
+
+# Test output
+coverage/
+
+# Misc
+*.swp
+*.swo
