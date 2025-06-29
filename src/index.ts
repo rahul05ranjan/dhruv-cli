@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import chalk from 'chalk';
-import ora from 'ora';
-import inquirer from 'inquirer';
+import fs from 'fs';
+import path from 'path';
 import { explain } from './commands/explain.js';
 import { suggest } from './commands/suggest.js';
 import { fix } from './commands/fix.js';
@@ -12,9 +12,6 @@ import { securityCheck } from './commands/security-check.js';
 import { generate } from './commands/generate.js';
 import { init } from './commands/init.js';
 import { detectProjectType } from './utils/projectType.js';
-import { loadConfig } from './config/config.js';
-import fs from 'fs';
-import path from 'path';
 import { menu } from './commands/menu.js';
 
 const program = new Command();
@@ -81,19 +78,20 @@ program
   .option('--model <model>', 'Set Ollama model')
   .option('--verbose', 'Enable verbose output')
   .option('--json', 'Output in JSON format')
-  .hook('preAction', (thisCommand) => {
+  .hook('preAction', async (thisCommand) => {
     const opts = thisCommand.opts();
     if (opts.model || opts.verbose || opts.json) {
-      const config: any = {};
+      const config: Record<string, unknown> = {};
       if (opts.model) config.model = opts.model;
       if (opts.verbose) config.verbose = true;
       if (opts.json) config.responseFormat = 'json';
       // Save config for session
-      require('./config/config').saveConfig(config);
+      const configModule = await import('./config/config.js');
+      configModule.saveConfig(config);
     }
   });
 
-async function loadPlugins(program: any) {
+async function loadPlugins(program: unknown) {
   const PLUGIN_DIR = path.join(process.cwd(), 'plugins');
   if (fs.existsSync(PLUGIN_DIR)) {
     const files = fs.readdirSync(PLUGIN_DIR).filter(f => f.endsWith('.js'));
@@ -141,13 +139,13 @@ complete -F _dhruv_completion dhruv`;
     console.log(`\n# To enable tab completion, add the above to your shell profile or source it directly.`);
   });
 
-process.on('uncaughtException', (err) => {
-  const { printError } = require('./utils/ux.js');
-  printError('Uncaught error: ' + err.message);
+process.on('uncaughtException', async (err) => {
+  const ux = await import('./utils/ux.js');
+  ux.printError('Uncaught error: ' + err.message);
   process.exit(1);
 });
-process.on('unhandledRejection', (reason: any) => {
-  const { printError } = require('./utils/ux.js');
-  printError('Unhandled rejection: ' + (reason?.message || reason));
+process.on('unhandledRejection', async (reason: unknown) => {
+  const ux = await import('./utils/ux.js');
+  ux.printError('Unhandled rejection: ' + ((reason as Error)?.message || reason));
   process.exit(1);
 });

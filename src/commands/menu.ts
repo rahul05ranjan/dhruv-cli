@@ -1,5 +1,4 @@
 import inquirer from 'inquirer';
-import chalk from 'chalk';
 import { themed } from '../utils/ux.js';
 
 const commands = [
@@ -16,7 +15,8 @@ const commands = [
 ];
 
 export async function menu() {
-  while (true) {
+  let running = true;
+  while (running) {
     const { cmd } = await inquirer.prompt([
       {
         type: 'list',
@@ -25,7 +25,10 @@ export async function menu() {
         choices: commands
       }
     ]);
-    if (cmd === 'exit') break;
+    if (cmd === 'exit') {
+      running = false;
+      break;
+    }
     // For demo, just print the command. In real use, you would call the command handler.
     console.log(themed(`You selected: ${cmd}`, 'accent'));
   }

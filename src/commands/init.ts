@@ -12,7 +12,7 @@ export async function init() {
     if (Array.isArray(tags) && tags.length > 0) {
       modelChoices = tags.map(t => t.name);
     }
-  } catch (e) {
+  } catch {
     // If Ollama is not running or fails, fallback to current model
   }
   const answers = await inquirer.prompt([

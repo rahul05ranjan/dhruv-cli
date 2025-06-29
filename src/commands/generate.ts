@@ -1,5 +1,4 @@
 import { askOllama } from '../core/ai.js';
-import ora from 'ora';
 import chalk from 'chalk';
 import { loadConfig } from '../config/config.js';
 import fs from 'fs';
@@ -46,7 +45,7 @@ export async function generate(type: string, target: string) {
       const codeBlocks = streamed.match(/```([a-z]*)\n([\s\S]*?)```/g) || [];
       for (const block of codeBlocks) {
         const [, lang, code] = block.match(/```([a-z]*)\n([\s\S]*?)```/) || [];
-        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch {}
+        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch (err) { console.error('Highlight error:', err); }
       }
     }
   } catch (err) {

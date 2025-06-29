@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-// @ts-ignore
+// @ts-expect-error: cli-progress has no type definitions
 import cliProgress from 'cli-progress';
 import { highlight } from 'cli-highlight';
 import { loadConfig } from '../config/config.js';

@@ -24,7 +24,16 @@ export async function explain(query: string) {
       const codeBlocks = streamed.match(/```([a-z]*)\n([\s\S]*?)```/g) || [];
       for (const block of codeBlocks) {
         const [, lang, code] = block.match(/```([a-z]*)\n([\s\S]*?)```/) || [];
-        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch {}
+        if (code) {
+          try {
+            console.log(highlightCode(code, lang || 'js'));
+          } catch (err) {
+            // Only log highlight errors in development
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Highlight error:', err);
+            }
+          }
+        }
       }
     }
   } catch (err) {

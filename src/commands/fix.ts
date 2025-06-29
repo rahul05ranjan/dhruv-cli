@@ -24,7 +24,7 @@ export async function fix(query: string) {
       const codeBlocks = streamed.match(/```([a-z]*)\n([\s\S]*?)```/g) || [];
       for (const block of codeBlocks) {
         const [, lang, code] = block.match(/```([a-z]*)\n([\s\S]*?)```/) || [];
-        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch {}
+        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch (err) { console.error('Highlight error:', err); }
       }
     }
   } catch (err) {
