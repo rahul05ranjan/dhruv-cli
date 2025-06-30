@@ -29,7 +29,7 @@
     "cli-progress": "^3.12.0",
     "commander": "^14.0.0",
     "inquirer": "^12.6.3",
-    "node-fetch": "^2.7.0",
+    "node-fetch": "^3.3.2",
     "ollama": "^0.5.16",
     "ora": "^8.2.0"
   },
