@@ -14,7 +14,7 @@ interface HealthCheckResult {
   category: string;
   status: 'pass' | 'warn' | 'fail';
   message: string;
-  details?: any;
+  details?: unknown;
   recommendation?: string;
 }
 

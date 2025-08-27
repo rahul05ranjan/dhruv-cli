@@ -48,7 +48,7 @@ export async function securityCheck(fileOrDir: string = '.') {
     console.log(chalk.green.bold('🛡️  Security Analysis: '));
     console.log();
     
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt: `Perform a security analysis on this code. Look for common security vulnerabilities, unsafe practices, potential injection attacks, and provide recommendations for improvement:\n\n${code}`,
       systemMessage: getSystemMessage('security'),
       model: config.model,

@@ -21,7 +21,7 @@ export async function suggest(query: string) {
     console.log(chalk.green.bold('💡 Suggestions: '));
     console.log();
     
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt: query,
       systemMessage: getSystemMessage('suggest'),
       model: config.model,

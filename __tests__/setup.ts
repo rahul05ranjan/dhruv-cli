@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 // Global test utilities
-(global as any).testUtils = {
+(global as Record<string, unknown>).testUtils = {
   // Helper to wait for async operations
   wait: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
 

@@ -79,6 +79,15 @@ else
     ((FAIL++))
 fi
 
+echo -n "Testing documentation generation... "
+if npm run docs > /dev/null 2>&1; then
+    echo -e "${GREEN}PASS${NC}"
+    ((PASS++))
+else
+    echo -e "${RED}FAIL${NC}"
+    ((FAIL++))
+fi
+
 # Basic CLI tests
 echo -e "\n${BLUE}=== Basic CLI Tests ===${NC}"
 test_command "help" "node dist/index.js --help"

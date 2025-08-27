@@ -54,7 +54,7 @@ export function formatCodeBlocks(text: string): string {
       return `\n${chalk.dim(`Code (${language}):`)}
 ${highlighted}
 `;
-    } catch (error) {
+    } catch {
       // Fallback to simple formatting if highlighting fails
       return `\n${chalk.dim(`Code (${lang || 'text'}):`)}
 ${chalk.gray(code.trim())}
@@ -133,7 +133,7 @@ function wordWrap(text: string, maxWidth: number): string {
  */
 export function createFormattedTokenHandler(
   onFormattedToken: (token: string) => void,
-  options: FormatOptions = {}
+  _options: FormatOptions = {}
 ): (token: string) => void {
   const buffer = '';
   let wordBuffer = '';
