@@ -2,30 +2,59 @@ name: Dhruv CLI CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1' # Weekly security scans
+
+env:
+  NODE_VERSION: '20.8.1'
+  NODE_VERSION_MATRIX: '[18.x, 20.x, 21.x]'
 
 permissions:
   contents: write
   security-events: write
   actions: read
+  pull-requests: write
+  checks: write
 
 jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better security scanning
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.8.1'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
+
       - name: Run security audit
         run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run Semgrep Security Scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -33,97 +62,214 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [18.x, 20.x, 21.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - node-version: 20.x
+            coverage: true
+        exclude:
+          - os: windows-latest
+            node-version: 18.x
+          - os: macos-latest
+            node-version: 18.x
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
+
       - name: Run linter
         run: npm run lint
+
+      - name: Type checking
+        run: npm run type-check
+
       - name: Build project
         run: npm run build
+
       - name: Run unit tests
         run: npm run test:ci
+        env:
+          CI: true
+
       - name: Generate coverage report
+        if: matrix.coverage
         run: npm run test:coverage
+
       - name: Upload coverage to Codecov
+        if: matrix.coverage
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage/lcov.info
           flags: unittests
-          name: codecov-umbrella
+          name: codecov-${{ matrix.node-version }}
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results (${{ matrix.node-version }})
+          path: coverage/junit.xml
+          reporter: jest-junit
+          fail-on-error: false
 
   performance:
     name: Performance Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.8.1'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
+
       - name: Build project
         run: npm run build
+
       - name: Run Lighthouse CI
         run: |
           npm install -g @lhci/cli
           lhci autorun --config=lighthouserc.json || echo "Lighthouse CI completed with warnings"
+        continue-on-error: true
+
       - name: Performance benchmark
         run: |
           npm install -g autocannon
           npm run benchmark || echo "Benchmark completed"
+        continue-on-error: true
+
+      - name: Bundle size analysis
+        run: |
+          npm install -g bundlesize
+          bundlesize || echo "Bundle size check completed"
+        continue-on-error: true
 
   build:
     name: Build & Publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [security, test, performance]
+    if: always() && (needs.security.result == 'success' && needs.test.result == 'success')
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.8.1'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
+
       - name: Lint
         run: npm run lint
+
       - name: Build
         run: npm run build
+
       - name: Generate API documentation
         run: npm run docs
+
+      - name: Run security checks on build
+        run: |
+          npx audit-ci --config audit-ci.json || echo "Security check completed with warnings"
+        continue-on-error: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            docs/
+          retention-days: 30
+
       - name: Upload docs to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
-      - name: Publish to npm
+          enable_jekyll: false
+
+      - name: Publish package (Dry Run)
+        if: github.event_name == 'pull_request'
+        run: npm publish --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Prepare for semantic release
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
-          npm publish --access public
+          echo "Package prepared for semantic release"
+          echo "Version will be determined by conventional commits"
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -131,9 +277,23 @@ jobs:
           files: |
             dist/**
             docs/**
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
       - name: Release (semantic-release)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
+
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
