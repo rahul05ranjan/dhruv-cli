@@ -11,9 +11,15 @@ import { optimize } from './commands/optimize.js';
 import { securityCheck } from './commands/security-check.js';
 import { generate } from './commands/generate.js';
 import { init } from './commands/init.js';
+import { status } from './commands/status.js';
+import { health } from './commands/health.js';
+import { metrics } from './commands/metrics.js';
 import { detectProjectType } from './utils/projectType.js';
 import { menu } from './commands/menu.js';
 import { createRequire } from 'module';
+import { logger, logCommand, logInfo, logError } from './core/logger.js';
+import { metricsCollector } from './core/metrics.js';
+import { securityManager } from './core/security.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
@@ -27,16 +33,19 @@ program
 program
   .command('explain <query>')
   .description('Explain a concept or command')
+  .addHelpText('after', '\nExamples:\n  $ dhruv explain "What is async/await?"\n  $ dhruv explain "Docker containers vs VMs"')
   .action(explain);
 
 program
   .command('suggest <query>')
   .description('Get AI-powered suggestions')
+  .addHelpText('after', '\nExamples:\n  $ dhruv suggest "React performance optimization"\n  $ dhruv suggest "Node.js project structure"')
   .action(suggest);
 
 program
   .command('fix <query>')
   .description('Get a fix for a coding issue or error')
+  .addHelpText('after', '\nExamples:\n  $ dhruv fix "TypeError: Cannot read property of undefined"\n  $ dhruv fix "CORS error in Express.js"')
   .action(fix);
 
 program
@@ -63,6 +72,21 @@ program
   .command('init')
   .description('Interactive setup/configuration wizard')
   .action(init);
+
+program
+  .command('status')
+  .description('Check Ollama connection and available models')
+  .action(status);
+
+program
+  .command('health')
+  .description('Run comprehensive health check')
+  .action(health);
+
+program
+  .command('metrics')
+  .description('Display CLI usage metrics')
+  .action(metrics);
 
 program
   .command('project-type')
@@ -113,8 +137,29 @@ async function loadPlugins(program: unknown) {
 }
 
 (async () => {
-  await loadPlugins(program);
-  program.parse(process.argv);
+  // Initialize enterprise features
+  try {
+    logInfo('Dhruv CLI starting', {
+      version: pkg.version,
+      nodeVersion: process.version,
+      platform: process.platform
+    });
+
+    // Record session start
+    metricsCollector.recordSession();
+
+    await loadPlugins(program);
+    program.parse(process.argv);
+
+    // Record successful session
+    const sessionId = logger.getSessionId();
+    logInfo('CLI session completed', { sessionId });
+
+  } catch (error) {
+    logError('CLI startup failed', error as Error);
+    console.error(chalk.red('Failed to start Dhruv CLI:'), (error as Error).message);
+    process.exit(1);
+  }
 })();
 
 // Autocomplete: Generate shell completion scripts

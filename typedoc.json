@@ -1,0 +1,44 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "extends": ["./tsconfig.docs.json"],
+  "entryPoints": ["src/index.ts", "src/core/", "src/commands/", "src/utils/"],
+  "out": "docs/api",
+  "name": "Dhruv CLI API",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "excludeExternals": false,
+  "excludeNotDocumented": false,
+  "disableSources": false,
+  "hideGenerator": false,
+  "readme": "README.md",
+  "theme": "default",
+  "lightHighlightTheme": "github-light",
+  "darkHighlightTheme": "github-dark",
+  "highlightLanguages": ["typescript", "javascript", "bash", "json"],
+  "sort": ["source-order"],
+  "gitRevision": "main",
+  "githubPages": true,
+  "navigationLinks": {
+    "Home": "https://rahul05ranjan.github.io/dhruv-cli/",
+    "GitHub": "https://github.com/rahul05ranjan/dhruv-cli"
+  },
+  "categorizeByGroup": true,
+  "groupOrder": [
+    "Core Modules",
+    "Commands",
+    "Utilities",
+    "Configuration",
+    "*"
+  ],
+  "categoryOrder": [
+    "AI Services",
+    "Security",
+    "Logging",
+    "Metrics",
+    "Commands",
+    "Utilities",
+    "*"
+  ]
+}

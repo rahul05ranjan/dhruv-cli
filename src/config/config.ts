@@ -11,7 +11,7 @@ export interface DhruvConfig {
 }
 
 const defaultConfig: DhruvConfig = {
-  model: 'codellama',
+  model: 'gemma3:270m',
   verbose: false,
   responseFormat: 'text',
   theme: 'default',
@@ -19,9 +19,42 @@ const defaultConfig: DhruvConfig = {
 
 export function loadConfig(): DhruvConfig {
   if (fs.existsSync(CONFIG_FILE)) {
-    return { ...defaultConfig, ...JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')) };
+    try {
+      const fileContent = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      const parsedConfig = JSON.parse(fileContent);
+      return validateAndMergeConfig(parsedConfig);
+    } catch (error) {
+      console.warn(`Warning: Invalid config file. Using defaults. Error: ${(error as Error).message}`);
+      return defaultConfig;
+    }
   }
   return defaultConfig;
+}
+
+function validateAndMergeConfig(config: Partial<DhruvConfig>): DhruvConfig {
+  const validatedConfig = { ...defaultConfig };
+  
+  // Validate model
+  if (config.model && typeof config.model === 'string') {
+    validatedConfig.model = config.model;
+  }
+  
+  // Validate verbose
+  if (typeof config.verbose === 'boolean') {
+    validatedConfig.verbose = config.verbose;
+  }
+  
+  // Validate responseFormat
+  if (config.responseFormat && ['text', 'json', 'markdown'].includes(config.responseFormat)) {
+    validatedConfig.responseFormat = config.responseFormat as 'text' | 'json' | 'markdown';
+  }
+  
+  // Validate theme
+  if (config.theme && ['default', 'dark', 'light', 'mono'].includes(config.theme)) {
+    validatedConfig.theme = config.theme as 'default' | 'dark' | 'light' | 'mono';
+  }
+  
+  return validatedConfig;
 }
 
 export function saveConfig(config: Partial<DhruvConfig>) {

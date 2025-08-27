@@ -1,35 +1,50 @@
-import { askOllama } from '../core/ai.js';
+import { askLangChain, getSystemMessage } from '../core/langchain-ai.js';
 import ora from 'ora';
 import chalk from 'chalk';
 import { loadConfig } from '../config/config.js';
-import { highlightCode, printError } from '../utils/ux.js';
+import { printError } from '../utils/ux.js';
 
 export async function suggest(query: string) {
+  if (!query || query.trim().length === 0) {
+    printError('Please provide a topic for suggestions.');
+    console.log(chalk.yellow('Example: dhruv suggest "React performance optimization"'));
+    return;
+  }
+
   const config = loadConfig();
   const spinner = ora('Generating suggestions...').start();
-  let streamed = '';
+  
   try {
     spinner.stop();
-    process.stdout.write(chalk.green('Suggestions: '));
-    await askOllama({
-      prompt: `Suggest: ${query}`,
+    
+    console.log(chalk.yellowBright('🤖 Dhruv CLI: AI-powered developer assistant'));
+    console.log(chalk.green.bold('💡 Suggestions: '));
+    console.log();
+    
+    const response = await askLangChain({
+      prompt: query,
+      systemMessage: getSystemMessage('suggest'),
       model: config.model,
       onToken: (token: string) => {
-        streamed += token;
         process.stdout.write(chalk.cyan(token));
       }
     });
-    process.stdout.write('\n');
-    if (typeof highlightCode === 'function' && streamed.match(/```[a-z]*[\s\S]*?```/)) {
-      // Highlight code blocks if present
-      const codeBlocks = streamed.match(/```([a-z]*)\n([\s\S]*?)```/g) || [];
-      for (const block of codeBlocks) {
-        const [, lang, code] = block.match(/```([a-z]*)\n([\s\S]*?)```/) || [];
-        if (code) try { console.log(highlightCode(code, lang || 'js')); } catch (err) { console.error('Highlight error:', err); }
-      }
-    }
+
+    console.log('\n');
+    console.log(chalk.dim('🔧 Need implementation help? Try: ') + 
+                chalk.cyan('dhruv fix "') + chalk.white(query) + chalk.cyan('"'));
+    
   } catch (err) {
+    spinner.stop();
     printError('Failed to get suggestions.');
-    console.error(chalk.red((err as Error).message));
+    
+    const errorMessage = (err as Error).message;
+    if (errorMessage.includes('Ollama is not running')) {
+      console.log(chalk.yellow('💡 Make sure Ollama is running: ') + chalk.cyan('ollama serve'));
+    } else if (errorMessage.includes('not found')) {
+      console.log(chalk.yellow('💡 Install the model: ') + chalk.cyan(`ollama pull ${config.model}`));
+    } else {
+      console.error(chalk.red(errorMessage));
+    }
   }
 }
