@@ -4,12 +4,52 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+      include: "scope"
     labels:
       - "dependencies"
+      - "security"
     reviewers:
-      - "dhruv-maintainers"
+      - "rahul05ranjan"
     assignees:
-      - "dhruv-ai"
+      - "rahul05ranjan"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+        update-type: "security"
+    ignore:
+      - dependency-name: "eslint"
+        versions: ["9.x"]
+      - dependency-name: "*"
+        update-type: "version-update:semver-major"
+    groups:
+      development-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "prettier*"
+          - "jest*"
+          - "@typescript-eslint/*"
+      production-dependencies:
+        dependency-type: "production"
+        exclude-patterns:
+          - "@types/*"
+  
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "chore(actions)"
+    labels:
+      - "github-actions"
+      - "dependencies"
