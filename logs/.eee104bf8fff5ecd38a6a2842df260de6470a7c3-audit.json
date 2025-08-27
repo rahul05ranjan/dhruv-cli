@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/home/rahul/Desktop/PROJECTS/dhruv-cli/logs/.eee104bf8fff5ecd38a6a2842df260de6470a7c3-audit.json",
+    "files": [
+        {
+            "date": 1756285433392,
+            "name": "/home/rahul/Desktop/PROJECTS/dhruv-cli/logs/dhruv-2025-08-27.log",
+            "hash": "8e168d328c6da1e7736e2cde8c8d11f1c272f96976c25c5d55aabd90c1afc44b"
+        }
+    ],
+    "hashType": "sha256"
+}

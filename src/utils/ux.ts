@@ -2,6 +2,7 @@ import chalk from 'chalk';
 // @ts-expect-error: cli-progress has no type definitions
 import cliProgress from 'cli-progress';
 import { highlight } from 'cli-highlight';
+import ora from 'ora';
 import { loadConfig } from '../config/config.js';
 
 function getTheme() {
@@ -30,6 +31,23 @@ export function printError(message: string) {
 export function printSuccess(message: string) {
   const { success } = getTheme();
   console.log(success(' SUCCESS '), success(message));
+}
+
+export function printWarning(message: string) {
+  const { accent } = getTheme();
+  console.warn(chalk.bgYellow.black(' WARNING '), accent(message));
+}
+
+export function printInfo(message: string) {
+  const { primary } = getTheme();
+  console.log(chalk.bgBlue.white(' INFO '), primary(message));
+}
+
+export function createSpinner(text: string) {
+  return ora({
+    text: themed(text, 'primary'),
+    color: 'cyan',
+  });
 }
 
 export function createProgressBar(total: number) {

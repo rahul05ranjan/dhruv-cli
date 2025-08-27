@@ -22,7 +22,9 @@ export async function askOllama({ prompt, model, onToken }) {
   try {
     let result = '';
     const ollama = new Ollama();
-    for await (const chunk of ollama.generate(model || 'codellama', prompt)) {
+    // Await the iterator, then stream
+    const iterator = await ollama.generate({ model: model || 'codellama', prompt, stream: true });
+    for await (const chunk of iterator) {
       let token = '';
       if (typeof chunk === 'object' && chunk !== null && 'response' in chunk) {
         token = chunk.response;

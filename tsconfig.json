@@ -10,8 +10,9 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "declaration": true
+    "declaration": true,
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
-  "include": ["src/**/*", "node-fetch.d.ts"],
+  "include": ["src/**/*", "node-fetch.d.ts", "types/**/*"],
   "exclude": ["node_modules", "dist"]
 }
