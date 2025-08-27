@@ -13,7 +13,7 @@ const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR);
 
-interface LangChainConfig {
+interface _LangChainConfig {
   model: string;
   temperature?: number;
   streaming?: boolean;
@@ -186,7 +186,7 @@ function cleanupCache(): void {
       const toRemove = sortedFiles.slice(0, sortedFiles.length - MAX_CACHE_SIZE);
       toRemove.forEach(file => fs.unlinkSync(file.path));
     }
-  } catch (error) {
+  } catch {
     // Ignore cleanup errors
   }
 }
@@ -255,7 +255,7 @@ export async function askLangChain({
               if (parsed.response) {
                 onToken(parsed.response);
               }
-            } catch (e) {
+            } catch {
               // Ignore JSON parse errors for streaming
             }
           }
@@ -285,7 +285,7 @@ export async function askLangChain({
               fs.writeFileSync(cacheKey, result);
               resolve(result);
             }
-          } catch (e) {
+          } catch {
             reject(new Error('Failed to parse Ollama response'));
           }
         });

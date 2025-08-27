@@ -21,7 +21,7 @@ export async function fix(query: string) {
     console.log(chalk.green.bold('🔧 Fix Analysis: '));
     console.log();
     
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt: query,
       systemMessage: getSystemMessage('fix'),
       model: config.model,

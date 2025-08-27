@@ -51,7 +51,7 @@ export async function review(fileOrDir: string) {
     console.log(chalk.green.bold('🔍 Code Review: '));
     console.log();
     
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt: `Please review this code and provide feedback on code quality, best practices, potential issues, and suggestions for improvement. Here is the code to review:
 
 CODE_START

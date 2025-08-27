@@ -30,7 +30,7 @@ export async function generate(type: string, target: string) {
     }
 
     let streamed = '';
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt,
       systemMessage: getSystemMessage('generate'),
       model: config.model,

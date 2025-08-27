@@ -62,7 +62,7 @@ Please provide:
 
 Focus on actionable, practical improvements.`;
 
-    const response = await askLangChain({
+    const _response = await askLangChain({
       prompt,
       systemMessage: getSystemMessage('optimize'),
       model: config.model,

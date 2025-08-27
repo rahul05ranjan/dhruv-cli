@@ -2,7 +2,8 @@
   "preset": "ts-jest",
   "testEnvironment": "node",
   "roots": ["<rootDir>/src", "<rootDir>/__tests__"],
-  "testMatch": ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
+  "testMatch": ["**/__tests__/**/*.test.ts", "**/*.test.ts", "**/*.spec.ts"],
+  "testPathIgnorePatterns": ["/node_modules/", "/dist/", "/coverage/", "\\.test\\.js$", "\\.spec\\.js$"],
   "transform": {
     "^.+\\.ts$": "ts-jest"
   },

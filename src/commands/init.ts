@@ -18,7 +18,7 @@ export async function init() {
         modelChoices = data.models.map((m) => m.name);
       }
     }
-  } catch (error) {
+  } catch {
     console.log(chalk.yellow('Warning: Could not fetch available models from Ollama.'));
     console.log(chalk.yellow('Using default model choices.'));
   }
@@ -57,7 +57,7 @@ export async function init() {
     saveConfig(answers);
     console.log(chalk.green('Configuration saved!'));
   } catch (error) {
-    if ((error as any)?.isTtyError) {
+    if ((error as { isTtyError?: boolean })?.isTtyError) {
       console.log(chalk.red('This command requires an interactive terminal.'));
     } else {
       console.log(chalk.red('Configuration cancelled or failed.'));

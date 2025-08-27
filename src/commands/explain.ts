@@ -53,7 +53,7 @@ export async function explain(query: string) {
       console.log(chalk.green.bold('📚 Explanation: '));
       console.log();
 
-      const response = await askLangChain({
+      const _response = await askLangChain({
         prompt: query,
         systemMessage: getSystemMessage('explain'),
         model: config.model,
@@ -69,7 +69,7 @@ export async function explain(query: string) {
       const duration = Date.now() - startTime;
       logCommand(command, startTime, true, {
         queryLength: query.length,
-        responseLength: response.length,
+        responseLength: _response.length,
         model: config.model
       });
       logPerformance('explain_command', duration);
@@ -78,7 +78,7 @@ export async function explain(query: string) {
       logger.info('Explain command completed successfully', {
         duration,
         queryLength: query.length,
-        responseLength: response.length
+        responseLength: _response.length
       });
 
     } catch (aiError) {

@@ -1,7 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "extends": ["./tsconfig.docs.json"],
-  "entryPoints": ["src/index.ts", "src/core/", "src/commands/", "src/utils/"],
+  "entryPoints": ["src/index.ts", "src/core/", "src/commands/", "src/utils/", "src/config/"],
   "out": "docs/api",
   "name": "Dhruv CLI API",
   "includeVersion": true,
@@ -10,6 +9,7 @@
   "excludeInternal": true,
   "excludeExternals": false,
   "excludeNotDocumented": false,
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "**/*.test.js", "**/*.spec.js"],
   "disableSources": false,
   "hideGenerator": false,
   "readme": "README.md",
