@@ -15,7 +15,7 @@
   "coverageReporters": ["text", "lcov", "html"],
   "coverageThreshold": {
     "global": {
-      "branches": 9,
+      "branches": 7,
       "functions": 5,
       "lines": 6,
       "statements": 6

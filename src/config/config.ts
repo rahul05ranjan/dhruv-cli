@@ -11,7 +11,7 @@ export interface DhruvConfig {
 }
 
 const defaultConfig: DhruvConfig = {
-  model: 'codellama',
+  model: 'gemma3:270m',
   verbose: false,
   responseFormat: 'text',
   theme: 'default',

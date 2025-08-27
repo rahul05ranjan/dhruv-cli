@@ -261,10 +261,14 @@ describe('Dhruv CLI Core Systems', () => {
     it('should handle Ollama connection errors', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
+      // Use a unique prompt and definitely nonexistent model to avoid cache hits
+      const uniquePrompt = `test-error-handling-${Date.now()}`;
+      const nonexistentModel = `definitely-nonexistent-model-${Date.now()}`;
+
       await expect(askLangChain({
-        prompt: 'test',
-        model: 'nonexistent-model'
-      })).rejects.toThrow('LangChain AI error');
+        prompt: uniquePrompt,
+        model: nonexistentModel
+      })).rejects.toThrow('Ollama API error');
 
       consoleSpy.mockRestore();
     });

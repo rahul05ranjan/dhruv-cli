@@ -241,6 +241,12 @@ export async function askLangChain({
       }, (res) => {
         let data = '';
 
+        // Check for HTTP error status codes
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`Ollama API error: HTTP ${res.statusCode} ${res.statusMessage || ''}`));
+          return;
+        }
+
         res.on('data', (chunk) => {
           data += chunk;
           if (onToken) {
@@ -261,7 +267,21 @@ export async function askLangChain({
               resolve(''); // Return empty string for streaming mode
             } else {
               const response = JSON.parse(data);
+              
+              // Check if Ollama returned an error
+              if (response.error) {
+                reject(new Error(`Ollama error: ${response.error}`));
+                return;
+              }
+              
               const result = response.response || '';
+              
+              // Treat empty responses as errors for nonexistent models
+              if (!result.trim()) {
+                reject(new Error(`Model '${model}' not found or returned empty response. Please install it: ollama pull ${model}`));
+                return;
+              }
+              
               fs.writeFileSync(cacheKey, result);
               resolve(result);
             }
@@ -272,7 +292,15 @@ export async function askLangChain({
       });
 
       req.on('error', (err) => {
-        reject(new Error(`Ollama request failed: ${err.message}`));
+        let errorMessage = err.message || 'Unknown error';
+        if (errorMessage.includes('ECONNREFUSED')) {
+          errorMessage = 'Connection refused - Ollama may not be running';
+        } else if (errorMessage.includes('ENOTFOUND')) {
+          errorMessage = 'Host not found - Ollama service unavailable';
+        } else if (errorMessage === '' || errorMessage === 'Unknown error') {
+          errorMessage = 'Network error occurred while connecting to Ollama';
+        }
+        reject(new Error(`Ollama request failed: ${errorMessage}`));
       });
 
       req.write(postData);
