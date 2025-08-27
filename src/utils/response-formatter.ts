@@ -135,7 +135,7 @@ export function createFormattedTokenHandler(
   onFormattedToken: (token: string) => void,
   options: FormatOptions = {}
 ): (token: string) => void {
-  let buffer = '';
+  const buffer = '';
   let wordBuffer = '';
   
   return (token: string) => {
