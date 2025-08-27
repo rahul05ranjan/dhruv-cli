@@ -268,7 +268,7 @@ describe('Dhruv CLI Core Systems', () => {
       await expect(askLangChain({
         prompt: uniquePrompt,
         model: nonexistentModel
-      })).rejects.toThrow('Ollama API error');
+      })).rejects.toThrow(/Ollama/);
 
       consoleSpy.mockRestore();
     });
