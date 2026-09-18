@@ -101,4 +101,38 @@ describe('CLI output contract', () => {
 
     expect(result.stdout).toContain('--details');
   });
+
+  it('outputs exactly one valid JSON document on stdout with no ANSI or extra text', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'metrics', '--json'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).not.toContain('\u001b[');
+    const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      ok: true,
+      command: 'metrics',
+    });
+  });
+
+  it('outputs valid JSON for health command with expected top-level schema', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'health', '--json'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).not.toContain('\u001b[');
+    const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
+    expect(parsed).toHaveProperty('ok');
+    expect(parsed.command).toBe('health');
+  });
 });
