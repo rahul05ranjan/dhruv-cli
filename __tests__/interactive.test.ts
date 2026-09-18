@@ -72,6 +72,21 @@ describe('interactive commands', () => {
     }
   });
 
+  it('handles init non-interactive TTY failure with failure exit code', async () => {
+    jest.mocked(listModels).mockResolvedValue(['test-model']);
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockRejectedValueOnce({ isTtyError: true, message: 'TTY required' });
+    process.exitCode = undefined;
+
+    try {
+      await init();
+      expect(process.exitCode).toBe(1);
+    } finally {
+      prompt.mockReset();
+      process.exitCode = undefined;
+    }
+  });
+
   it('asks whether init should save project-local or user-global settings', async () => {
     jest.mocked(listModels).mockResolvedValue(['test-model']);
     const prompt = jest.mocked(inquirer.prompt);

@@ -59,11 +59,12 @@ export async function init() {
     saveConfig(settings, { scope });
     console.log(chalk.green(`Configuration saved ${scope === 'global' ? 'for your user account' : 'in this project'}!`));
   } catch (error) {
-    process.exitCode = 130;
-    if ((error as { isTtyError?: boolean })?.isTtyError) {
+    const isTty = Boolean((error as { isTtyError?: boolean })?.isTtyError);
+    process.exitCode = isTty ? 1 : 130;
+    if (isTty) {
       console.log(chalk.red('This command requires an interactive terminal.'));
     } else {
-      console.log(chalk.red('Configuration cancelled or failed.'));
+      console.log(chalk.red('Configuration cancelled.'));
     }
   }
 }
