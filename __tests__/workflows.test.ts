@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 
@@ -24,6 +24,12 @@ const atLeast = (version: string, minimum: string): boolean =>
   /^\d+\.\d+\.\d+$/.test(version) && version.localeCompare(minimum, 'en', { numeric: true }) >= 0;
 
 describe('release workflow requirements', () => {
+  it('does not retain redundant publishing or deployment workflows', () => {
+    for (const name of ['auto-assign.yml', 'build-publish.yml', 'deploy.yml', 'monitoring.yml']) {
+      expect(existsSync(resolve(root, '.github/workflows', name))).toBe(false);
+    }
+  });
+
   it('installs an OIDC-capable npm CLI where semantic-release looks for executables', () => {
     // The plugin uses preferLocal: true. A global npm upgrade cannot fix an
     // older CLI hoisted here by a conflicting @semantic-release/npm version.
@@ -31,7 +37,7 @@ describe('release workflow requirements', () => {
     expect(atLeast(npm.version, '11.5.1')).toBe(true);
   });
 
-  it.each(['build-publish.yml', 'release.yml', 'deploy.yml'])(
+  it.each(['release.yml'])(
     '%s provisions a supported Node and npm before publishing',
     name => {
       const config = workflow(name);
@@ -52,7 +58,7 @@ describe('release workflow requirements', () => {
     });
 
   it('has one automatic publisher for main pushes', () => {
-    const publishers = ['ci.yml', 'build-publish.yml', 'release.yml']
+    const publishers = ['ci.yml', 'release.yml']
       .filter(name => {
         const config = workflow(name);
         return config.on.push && Object.values(config.jobs).some(job =>
