@@ -1,33 +1,49 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { askLangChain, getSystemMessage } from '../src/core/langchain-ai';
+import {
+  ask,
+  listModels,
+  setAIClient,
+  InMemoryAIClient,
+} from '../src/core/ai';
 import { loadConfig, saveConfig } from '../src/config/config';
 import { createSpinner } from '../src/utils/ux';
 import { detectProjectType } from '../src/utils/projectType';
+import { getSystemMessage } from '../src/core/prompts';
+import { runCommand } from '../src/core/command-runner';
 import fs from 'fs';
 import path from 'path';
 
-// Mock external dependencies
-jest.mock('@langchain/core/messages');
-jest.mock('@langchain/core/output_parsers');
-jest.mock('@langchain/core/prompts');
-jest.mock('@langchain/core/runnables');
+// chalk and ora are ESM-only and can't be loaded by the CJS test runtime.
+// Identity stubs stand in: the tests assert pipeline behavior, not coloring.
+jest.mock('chalk', () => {
+  // Self-chaining identity: chalk.green.bold('x') === 'x', any chain depth.
+  const identity = (s: unknown) => String(s);
+  const makeChalk = (): unknown =>
+    new Proxy(identity, {
+      get: (_target: unknown, prop: string | symbol) => {
+        if (prop === 'level') return 0;
+        if (prop === Symbol.toPrimitive) return () => '';
+        return makeChalk();
+      },
+      apply: (_target: unknown, _thisArg: unknown, args: unknown[]) => String(args[0]),
+    });
+  const chalk = makeChalk() as unknown as Record<string, unknown>;
+  return { __esModule: true, default: chalk, ...chalk };
+});
 
-// Mock ChatOllama with doMock for dynamic loading
-jest.doMock('@langchain/ollama', () => ({
-  ChatOllama: jest.fn().mockImplementation(() => ({
-    invoke: jest.fn(() => Promise.resolve('mocked response')),
-    stream: jest.fn(() => Promise.resolve({
-      [Symbol.asyncIterator]: function* () {
-        yield 'mocked ';
-        yield 'response ';
-        yield 'chunks';
-      }
-    }))
-  }))
+jest.mock('ora', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    start: jest.fn().mockReturnThis(),
+    stop: jest.fn().mockReturnThis(),
+    succeed: jest.fn().mockReturnThis(),
+    fail: jest.fn().mockReturnThis(),
+  })),
 }));
 
-jest.mock('ollama');
-jest.mock('../src/utils/ux.ts', () => ({
+// UX output is mocked at its own module edge — the runner's pipeline behavior
+// is what's under test, not console formatting.
+jest.mock('../src/utils/ux', () => ({
   printError: jest.fn(),
   printSuccess: jest.fn(),
   printWarning: jest.fn(),
@@ -38,32 +54,45 @@ jest.mock('../src/utils/ux.ts', () => ({
     succeed: jest.fn().mockReturnThis(),
     fail: jest.fn().mockReturnThis(),
   })),
-  themed: jest.fn((text) => text),
+  themed: jest.fn((text: string) => text),
+  highlightCode: jest.fn((code: string) => code),
+  createProgressBar: jest.fn(() => ({
+    increment: jest.fn(),
+    stop: jest.fn(),
+  })),
+}));
+
+jest.mock('../src/core/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    command: jest.fn(),
+    performance: jest.fn(),
+    security: jest.fn(),
+    getSessionId: jest.fn(() => 'test-session'),
+    flush: jest.fn(),
+  },
+  logCommand: jest.fn(),
+  logPerformance: jest.fn(),
+  logSecurity: jest.fn(),
+  logError: jest.fn(),
+  logInfo: jest.fn(),
+  logWarn: jest.fn(),
+  logDebug: jest.fn(),
 }));
 
 describe('Dhruv CLI Core Systems', () => {
   const originalEnv = process.env;
-  const testCacheDir = path.join(process.cwd(), '.test-cache');
 
   beforeEach(() => {
-    // Setup test environment
     process.env = { ...originalEnv };
     jest.clearAllMocks();
-
-    // Clean test cache
-    if (fs.existsSync(testCacheDir)) {
-      fs.rmSync(testCacheDir, { recursive: true, force: true });
-    }
   });
 
   afterEach(() => {
-    // Restore environment
     process.env = originalEnv;
-
-    // Clean test cache
-    if (fs.existsSync(testCacheDir)) {
-      fs.rmSync(testCacheDir, { recursive: true, force: true });
-    }
   });
 
   describe('Configuration Management', () => {
@@ -93,17 +122,14 @@ describe('Dhruv CLI Core Systems', () => {
     });
 
     it('should handle invalid configuration gracefully', () => {
-      // Create invalid config file
       const configPath = path.join(process.cwd(), '.dhruv-config.json');
       fs.writeFileSync(configPath, 'invalid json');
 
       const config = loadConfig();
 
-      // Should return defaults despite invalid file
       expect(config).toHaveProperty('model');
       expect(config.verbose).toBe(false);
 
-      // Clean up
       if (fs.existsSync(configPath)) {
         fs.unlinkSync(configPath);
       }
@@ -112,7 +138,6 @@ describe('Dhruv CLI Core Systems', () => {
 
   describe('Project Type Detection', () => {
     it('should detect Node.js project', () => {
-      // Mock package.json existence
       const mockExistsSync = jest.spyOn(fs, 'existsSync');
       mockExistsSync.mockImplementation((filePath: fs.PathLike) => {
         return path.basename(filePath.toString()) === 'package.json';
@@ -162,7 +187,7 @@ describe('Dhruv CLI Core Systems', () => {
     });
   });
 
-  describe('LangChain AI Service', () => {
+  describe('System Message Templates', () => {
     it('should return system message for valid type', () => {
       const explainMessage = getSystemMessage('explain');
       expect(explainMessage).toContain('programming instructor');
@@ -178,39 +203,108 @@ describe('Dhruv CLI Core Systems', () => {
       const explainMessage = getSystemMessage('explain');
       expect(defaultMessage).toBe(explainMessage);
     });
+  });
 
-    it.skip('should handle caching correctly', async () => {
-      // TODO: This test requires complex LangChain mocking that is difficult to set up
-      // in a unit test environment. The caching functionality works correctly in practice
-      // as demonstrated by the working health check and metrics commands.
-      // 
-      // To properly test this, we would need:
-      // 1. A test-specific Ollama server mock
-      // 2. Proper LangChain module isolation
-      // 3. Complex dependency injection setup
-      //
-      // For now, this functionality is validated through integration testing
-      // with the actual CLI commands (health, metrics, etc.)
-      
-      // Implementation temporarily disabled due to complex mocking requirements
-      expect(true).toBe(true);
+  describe('AI module through its interface (in-memory adapter)', () => {
+    let client: InMemoryAIClient;
+
+    beforeEach(() => {
+      client = new InMemoryAIClient(new Map([['hello', 'cached answer']]));
+      setAIClient(client);
+    });
+
+    it('streams tokens and returns the full response', async () => {
+      const tokens: string[] = [];
+      const response = await ask({ prompt: 'hello', onToken: (t) => tokens.push(t) });
+      expect(response).toBe('cached answer');
+      expect(tokens).toEqual(['cached answer']);
+    });
+
+    it('returns the same response for a repeated request without recomputing', async () => {
+      const first = await ask({ prompt: 'hello' });
+      const second = await ask({ prompt: 'hello' });
+      expect(first).toBe(second);
+      expect(client.computations).toBe(1);
+    });
+
+    it('recomputes when the cache entry expires', async () => {
+      await ask({ prompt: 'hello' });
+      const before = client.computations;
+
+      // Simulate the entry aging past the TTL.
+      const originalNow = client.now;
+      client.now = () => originalNow() + 25 * 60 * 60 * 1000;
+
+      await ask({ prompt: 'hello' });
+      expect(client.computations).toBe(before + 1);
+    });
+
+    it('surfaces model-not-found as a typed error', async () => {
+      client.failures.set('missing-model', { kind: 'model-not-found', model: 'nope' });
+      await expect(ask({ prompt: 'missing-model please' })).rejects.toMatchObject({
+        kind: 'model-not-found',
+      });
+    });
+
+    it('surfaces connection failure as a typed error', async () => {
+      client.failures.set('down', { kind: 'connection', cause: 'ECONNREFUSED' });
+      await expect(ask({ prompt: 'down service' })).rejects.toMatchObject({
+        kind: 'connection',
+      });
+    });
+
+    it('lists models through the interface', async () => {
+      const models = await listModels();
+      expect(models).toContain('test-model');
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle Ollama connection errors', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  describe('Command runner through its seam (fake AI adapter injected)', () => {
+    let client: InMemoryAIClient;
 
-      // Use a unique prompt and definitely nonexistent model to avoid cache hits
-      const uniquePrompt = `test-error-handling-${Date.now()}`;
-      const nonexistentModel = `definitely-nonexistent-model-${Date.now()}`;
+    beforeEach(() => {
+      client = new InMemoryAIClient(new Map([['happy', 'the answer']]));
+      setAIClient(client);
+    });
 
-      await expect(askLangChain({
-        prompt: uniquePrompt,
-        model: nonexistentModel
-      })).rejects.toThrow(/Ollama/);
+    function makeSpec(overrides: Partial<Parameters<typeof runCommand>[0]> = {}) {
+      return {
+        name: 'explain',
+        input: { query: 'happy' },
+        header: '📚 Explanation: ',
+        buildRequest: (input: Record<string, string>, model: string) => ({
+          prompt: input.query,
+          systemMessage: 'sys',
+          model,
+        }),
+        ...overrides,
+      };
+    }
 
-      consoleSpy.mockRestore();
+    it('runs the full pipeline for a happy path', async () => {
+      let completed: string | undefined;
+      await runCommand(makeSpec({ onComplete: (response) => { completed = response; } }));
+      expect(completed).toBe('the answer');
+    });
+
+    it('short-circuits on validation failure before the AI call', async () => {
+      const computationsBefore = client.computations;
+      await runCommand(makeSpec({ input: { query: '<script>alert(1)</script>' } }));
+      expect(client.computations).toBe(computationsBefore);
+    });
+
+    it('maps a typed connection error to the ollama-serve hint', async () => {
+      client.failures.set('happy', { kind: 'connection', cause: 'ECONNREFUSED' });
+      await runCommand(makeSpec());
+      const { printError } = await import('../src/utils/ux');
+      expect(jest.mocked(printError).mock.calls.length).toBeGreaterThan(0);
+    });
+
+    it('maps a typed model-not-found error to the pull hint', async () => {
+      client.failures.set('happy', { kind: 'model-not-found', model: 'nope' });
+      await runCommand(makeSpec());
+      const { printError } = await import('../src/utils/ux');
+      expect(jest.mocked(printError).mock.calls.length).toBeGreaterThan(0);
     });
   });
 
@@ -219,24 +313,6 @@ describe('Dhruv CLI Core Systems', () => {
       const spinner = createSpinner('Testing...');
       expect(spinner).toHaveProperty('start');
       expect(spinner).toHaveProperty('stop');
-    });
-
-    it('should handle theme selection', () => {
-      // Test theme switching by mocking config
-      const mockLoadConfig = jest.spyOn(require('../src/config/config'), 'loadConfig');
-      mockLoadConfig.mockReturnValue({
-        model: 'test',
-        verbose: false,
-        responseFormat: 'text',
-        theme: 'dark'
-      });
-
-      // Import and test themed function
-      const { themed } = require('../src/utils/ux');
-      const result = themed('test text', 'primary');
-      expect(result).toBe('test text'); // Mocked to return original text
-
-      mockLoadConfig.mockRestore();
     });
   });
 });

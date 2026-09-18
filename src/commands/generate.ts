@@ -1,85 +1,56 @@
-import { askLangChain, getSystemMessage } from '../core/langchain-ai.js';
-import chalk from 'chalk';
-import { loadConfig } from '../config/config.js';
 import fs from 'fs';
+import { runCommand } from '../core/command-runner.js';
+import { getSystemMessage } from '../core/prompts.js';
 import { printError, printSuccess } from '../utils/ux.js';
 
+function buildPrompt(type: string, content: string): string {
+  if (type === 'tests' || type === 'test') {
+    return `Generate comprehensive unit tests for the following JavaScript code. Use Jest or Mocha syntax. Only return the test code without explanations:\n\n${content}`;
+  }
+  if (type === 'documentation' || type === 'docs') {
+    return `Generate JSDoc documentation for the following code:\n\n${content}`;
+  }
+  return `Generate ${type} for this code:\n\n${content}`;
+}
+
+/** Extracts test code from the response: a fenced block if present, else the raw response. */
+function extractTestCode(response: string): string {
+  const fenced = response.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/);
+  if (fenced?.[1]) return fenced[1].trim();
+  return response
+    .replace(/^.*?(?=const|describe|test|it\s*\()/s, '')
+    .replace(/```[a-z]*\n?/g, '')
+    .trim();
+}
+
 export async function generate(type: string, target: string) {
-  const config = loadConfig();
-  let content = '';
-  
-  if (fs.existsSync(target)) {
-    content = fs.readFileSync(target, 'utf-8');
-  } else {
+  if (!fs.existsSync(target)) {
     printError(`Target file "${target}" does not exist.`);
     return;
   }
 
-  try {
-    console.log(chalk.yellowBright('🤖 Dhruv CLI: AI-powered developer assistant'));
-    console.log(chalk.green.bold(`🔨 Generating ${type}: `));
-    console.log();
-    
-    let prompt = '';
-    if (type === 'tests' || type === 'test') {
-      prompt = `Generate comprehensive unit tests for the following JavaScript code. Use Jest or Mocha syntax. Only return the test code without explanations:\n\n${content}`;
-    } else if (type === 'documentation' || type === 'docs') {
-      prompt = `Generate JSDoc documentation for the following code:\n\n${content}`;
-    } else {
-      prompt = `Generate ${type} for this code:\n\n${content}`;
-    }
+  const content = fs.readFileSync(target, 'utf-8');
 
-    let streamed = '';
-    const _response = await askLangChain({
-      prompt,
+  await runCommand({
+    name: 'generate',
+    input: { type, target },
+    header: `🔨 Generating ${type}: `,
+    buildRequest: (input, model) => ({
+      prompt: buildPrompt(input.type, content),
       systemMessage: getSystemMessage('generate'),
-      model: config.model,
-      onToken: (token: string) => {
-        streamed += token;
-        process.stdout.write(chalk.cyan(token));
-      }
-    });
-
-    console.log('\n');
-
-    // Handle test generation
-    if (type === 'tests' || type === 'test') {
-      let codeToSave = streamed;
-      
-      // Extract code from markdown blocks
-      const codeBlockMatch = streamed.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/);
-      if (codeBlockMatch && codeBlockMatch[1]) {
-        codeToSave = codeBlockMatch[1].trim();
-      } else {
-        // Fallback: clean up the response
-        codeToSave = streamed
-          .replace(/^.*?(?=const|describe|test|it\s*\()/s, '') // Remove text before test code
-          .replace(/```[a-z]*\n?/g, '') // Remove code block markers
-          .trim();
-      }
-
-      const testFile = target.replace(/\.[^.]+$/, '.test.js');
-      if (codeToSave) {
-        fs.writeFileSync(testFile, codeToSave);
-        printSuccess(`Test file saved: ${testFile}`);
-      } else {
+      model,
+    }),
+    onComplete: (response) => {
+      if (type !== 'tests' && type !== 'test') return;
+      const codeToSave = extractTestCode(response);
+      if (!codeToSave) {
         printError('No valid test code generated.');
+        return;
       }
-    }
-
-    console.log(chalk.dim('🔍 Want a review? Try: ') + 
-                chalk.cyan('dhruv review ') + chalk.white(target));
-
-  } catch (err) {
-    printError('Failed to generate code.');
-    
-    const errorMessage = (err as Error).message;
-    if (errorMessage.includes('Ollama is not running')) {
-      console.log(chalk.yellow('💡 Make sure Ollama is running: ') + chalk.cyan('ollama serve'));
-    } else if (errorMessage.includes('not found')) {
-      console.log(chalk.yellow('💡 Install the model: ') + chalk.cyan(`ollama pull ${config.model}`));
-    } else {
-      console.error(chalk.red(errorMessage));
-    }
-  }
+      const testFile = target.replace(/\.[^.]+$/, '.test.js');
+      fs.writeFileSync(testFile, codeToSave);
+      printSuccess(`Test file saved: ${testFile}`);
+    },
+    footer: `🔍 Want a review? Try: dhruv review ${target}`,
+  });
 }

@@ -148,6 +148,7 @@ jobs:
       - name: Upload test results
         uses: dorny/test-reporter@v1
         if: always()
+        continue-on-error: true
         with:
           name: Test Results (${{ matrix.node-version }})
           path: coverage/junit.xml
@@ -289,8 +290,9 @@ jobs:
         run: npx semantic-release
 
       - name: Notify deployment status
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         uses: 8398a7/action-slack@v3
+        continue-on-error: true
         with:
           status: ${{ job.status }}
           channel: '#deployments'

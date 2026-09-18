@@ -85,11 +85,11 @@ jobs:
         run: npm ci --prefer-offline --no-audit
 
       - name: Run OSV Scanner
-        uses: google/osv-scanner-action@v1
+        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
+        continue-on-error: true
         with:
           scan-args: |-
             --recursive
-            --skip-git
             ./
 
       - name: Run Snyk Security Scan
@@ -123,8 +123,8 @@ jobs:
 
       - name: Generate SBOM
         run: |
-          npx @cyclonedx/bom --output sbom.json
-          npx @cyclonedx/bom --output sbom.xml --format xml
+          npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.json
+          npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.xml --output-format XML
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4

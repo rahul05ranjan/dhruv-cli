@@ -122,8 +122,13 @@ jobs:
 
       - name: Create Git tag
         run: |
-          git tag v${{ steps.final_version.outputs.version }}
-          git push origin v${{ steps.final_version.outputs.version }}
+          TAG="v${{ steps.final_version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping tag creation"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
       - name: Publish to NPM
         run: |
