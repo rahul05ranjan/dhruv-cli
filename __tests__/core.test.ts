@@ -366,6 +366,32 @@ describe('Dhruv CLI Core Systems', () => {
       expect(jest.mocked(printError).mock.calls.length).toBeGreaterThan(0);
     });
 
+    it('maps an untyped ECONNREFUSED error to the ollama-serve hint', async () => {
+      setAIClient({
+        ask: async () => { throw new Error('connect ECONNREFUSED 127.0.0.1:11434'); },
+        listModels: async () => [],
+      });
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      await runCommand(makeSpec());
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('ollama serve'));
+      consoleSpy.mockRestore();
+    });
+
+    it('displays completed response when streaming is unavailable', async () => {
+      setAIClient({
+        ask: async () => 'static completed response',
+        listModels: async () => [],
+      });
+      const output: string[] = [];
+      const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+        output.push(String(chunk));
+        return true;
+      });
+      await runCommand(makeSpec());
+      expect(output.join('')).toContain('static completed response');
+      writeSpy.mockRestore();
+    });
+
     it('marks the process unsuccessful when an AI command fails', async () => {
       const originalExitCode = process.exitCode;
       process.exitCode = undefined;

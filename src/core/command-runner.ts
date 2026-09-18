@@ -43,7 +43,14 @@ export interface CommandSpec {
 /** Maps typed AI errors to user-facing hints — once, not per command. */
 function describeAIError(error: unknown, model: string): string {
   if (!error || typeof error !== 'object' || !('kind' in error)) {
-    return error instanceof Error ? error.message : String(error);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (/econnrefused|failed to connect|fetch failed/i.test(msg)) {
+      return `💡 Make sure Ollama is running: ollama serve`;
+    }
+    if (/model.*not found/i.test(msg)) {
+      return `💡 Install the model: ollama pull ${model}`;
+    }
+    return msg;
   }
 
   const typedError = error as AIError;
@@ -149,7 +156,6 @@ export async function runCommand(spec: CommandSpec): Promise<void> {
     } else {
       if (!streamed) process.stdout.write(response);
       process.stdout.write('\n');
-      console.log('\n');
       if (spec.footer) console.log(chalk.dim(spec.footer));
     }
 
