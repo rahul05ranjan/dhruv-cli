@@ -286,7 +286,9 @@ export class MetricsCollector {
     try {
       fs.unlinkSync(this.persistentPath());
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        logger.debug('Failed to unlink persistent metrics', { error: (error as Error).message });
+      }
     }
   }
 
