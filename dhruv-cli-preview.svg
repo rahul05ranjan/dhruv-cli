@@ -1,0 +1,42 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Dhruv CLI terminal preview</title>
+  <desc id="desc">A dark terminal window showing Dhruv CLI reviewing a project and returning a structured result.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1200" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121827"/>
+      <stop offset="1" stop-color="#202A45"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="220" y1="70" x2="1020" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFC" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#20D6C7" stop-opacity="0.12"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#050914" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="620" rx="28" fill="url(#background)"/>
+  <circle cx="110" cy="88" r="150" fill="#7C5CFC" fill-opacity="0.08"/>
+  <circle cx="1120" cy="560" r="220" fill="#20D6C7" fill-opacity="0.06"/>
+  <rect x="100" y="70" width="1000" height="480" rx="18" fill="#0B1020" stroke="#3A4668" filter="url(#shadow)"/>
+  <rect x="100" y="70" width="1000" height="62" rx="18" fill="#171F35"/>
+  <path d="M100 114H1100" stroke="#2A3552"/>
+  <circle cx="137" cy="101" r="8" fill="#FF6B6B"/>
+  <circle cx="163" cy="101" r="8" fill="#F8C15C"/>
+  <circle cx="189" cy="101" r="8" fill="#4DD89A"/>
+  <text x="600" y="107" fill="#8994B0" font-family="Arial, sans-serif" font-size="17" text-anchor="middle">dhruv — terminal assistant</text>
+  <rect x="132" y="163" width="936" height="350" rx="12" fill="url(#glow)" fill-opacity="0.18"/>
+  <text x="155" y="207" fill="#7D8AAA" font-family="monospace" font-size="22">$</text>
+  <text x="180" y="207" fill="#E8ECF7" font-family="monospace" font-size="22">dhruv review src/</text>
+  <text x="155" y="257" fill="#20D6C7" font-family="monospace" font-size="18">◈ Reviewing project context...</text>
+  <text x="155" y="300" fill="#AAB5D1" font-family="monospace" font-size="18">Code quality</text>
+  <rect x="330" y="286" width="500" height="11" rx="5.5" fill="#293451"/>
+  <rect x="330" y="286" width="430" height="11" rx="5.5" fill="#20D6C7"/>
+  <text x="850" y="300" fill="#20D6C7" font-family="monospace" font-size="18">86%</text>
+  <text x="155" y="345" fill="#AAB5D1" font-family="monospace" font-size="18">Findings</text>
+  <text x="330" y="345" fill="#E8ECF7" font-family="monospace" font-size="18">3 actionable suggestions</text>
+  <text x="155" y="390" fill="#AAB5D1" font-family="monospace" font-size="18">Next step</text>
+  <text x="330" y="390" fill="#E8ECF7" font-family="monospace" font-size="18">Run dhruv optimize package.json</text>
+  <path d="M155 438H1045" stroke="#2A3552" stroke-dasharray="5 9"/>
+  <text x="155" y="480" fill="#7C5CFC" font-family="monospace" font-size="18">✓ Local model ready</text>
+  <text x="1045" y="480" fill="#687694" font-family="monospace" font-size="18" text-anchor="end">gemma3:270m</text>
+</svg>
