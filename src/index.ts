@@ -184,18 +184,70 @@ program
     let script = '';
     switch (shell) {
       case 'zsh':
-        script = `#compdef dhruv\n_dhruv_completion() {\n  _arguments '1:command:(${commands})' '*:option:(${options})'\n}\ncompdef _dhruv_completion dhruv`;
+        script = `#compdef dhruv
+_dhruv_completion() {
+  local -a commands
+  commands=(${commands})
+  _arguments -C \\
+    '1:command:->cmds' \\
+    '*::options:->args'
+  case "$state" in
+    cmds)
+      _describe -t commands 'dhruv command' commands
+      ;;
+    args)
+      case $words[1] in
+        generate)
+          _arguments '1:type:(tests documentation docs component)' '*:file:_files'
+          ;;
+        review|optimize|security-check)
+          _arguments '*:file:_files'
+          ;;
+        completion)
+          _arguments '1:shell:(bash zsh fish)'
+          ;;
+        *)
+          _arguments '*:options:(${options})'
+          ;;
+      esac
+      ;;
+  esac
+}
+compdef _dhruv_completion dhruv`;
         break;
       case 'fish':
-        script = `complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'\ncomplete -c dhruv -f -n 'not __fish_use_subcommand' -a '${options}'`;
+        script = `complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'\ncomplete -c dhruv -f -n '__fish_seen_subcommand_from generate' -a 'tests documentation docs component'\ncomplete -c dhruv -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'\ncomplete -c dhruv -f -n 'not __fish_use_subcommand' -a '${options}'`;
         break;
       case 'bash':
         script = String.raw`#!/bin/bash
 _dhruv_completion() {
-  local commands="${commands}"
-  local options="${options}"
-  local choices="$commands $options"
-  COMPREPLY=( $(compgen -W "$choices" -- "\${COMP_WORDS[COMP_CWORD]}") )
+  local cur prev commands options
+  COMPREPLY=()
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  commands="${commands}"
+  options="${options}"
+
+  if [[ "$prev" == "generate" ]]; then
+    COMPREPLY=( $(compgen -W "tests documentation docs component" -- "$cur") )
+    return 0
+  fi
+  if [[ "$prev" == "completion" ]]; then
+    COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+    return 0
+  fi
+  if [[ "$prev" == "review" || "$prev" == "optimize" || "$prev" == "security-check" ]]; then
+    COMPREPLY=( $(compgen -f -- "$cur") )
+    return 0
+  fi
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+  elif [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+  else
+    COMPREPLY=( $(compgen -W "$commands $options" -- "$cur") )
+  fi
 }
 complete -F _dhruv_completion dhruv`;
         break;
