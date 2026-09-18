@@ -53,7 +53,7 @@ program
   .command('review <fileOrDir>')
   .description(commandDescription('review'))
   .option('--diff', 'Review the current uncommitted git diff')
-  .action((fileOrDir: string, command: Command) => review(fileOrDir, command.opts()));
+  .action((fileOrDir: string, options: Record<string, any>) => review(fileOrDir, options));
 
 program
   .command('optimize <file>')
@@ -64,7 +64,7 @@ program
   .command('security-check [fileOrDir]')
   .description(commandDescription('security-check'))
   .option('--strict', 'Exit with failure when high-confidence findings are detected')
-  .action((fileOrDir: string | undefined, command: Command) => securityCheck(fileOrDir, command.opts()));
+  .action((fileOrDir: string | undefined, options: Record<string, any>) => securityCheck(fileOrDir, options));
 
 program
   .command('generate <type> <target>')
@@ -72,7 +72,7 @@ program
   .option('--apply', 'Write generated tests to disk (preview is the default)')
   .option('--output <path>', 'Write generated tests to this path')
   .option('--overwrite', 'Allow replacing an existing output file')
-  .action((type: string, target: string, command: Command) => generate(type, target, command.opts()));
+  .action((type: string, target: string, options: Record<string, any>) => generate(type, target, options));
 
 program
   .command('init')
@@ -88,14 +88,14 @@ program
   .command('health')
   .description(commandDescription('health'))
   .option('--details', 'Show every health check and diagnostic detail')
-  .action((command: Command) => health(command.opts()));
+  .action((options: Record<string, any>) => health(options));
 
 program
   .command('metrics')
   .description(commandDescription('metrics'))
   .option('--raw', 'Export raw Prometheus metrics')
   .option('--reset', 'Clear persisted local metrics')
-  .action((command: Command) => metrics(command.opts()));
+  .action((options: Record<string, any>) => metrics(options));
 
 program
   .command('project-type')
