@@ -1,22 +1,16 @@
 import inquirer from 'inquirer';
 import { saveConfig, loadConfig } from '../config/config.js';
 import chalk from 'chalk';
+import { listModels } from '../core/ai.js';
 
 export async function init() {
   const current = loadConfig();
   let modelChoices = [current.model];
-  
+
   try {
-    // Dynamically import node-fetch for compatibility
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fetch: any = (await import('node-fetch')).default;
-    // Fetch models from Ollama REST API
-    const res = await fetch('http://localhost:11434/api/tags');
-    if (res.ok) {
-      const data = (await res.json()) as { models?: { name: string }[] };
-      if (Array.isArray(data.models) && data.models.length > 0) {
-        modelChoices = data.models.map((m) => m.name);
-      }
+    const models = await listModels();
+    if (models.length > 0) {
+      modelChoices = models;
     }
   } catch {
     console.log(chalk.yellow('Warning: Could not fetch available models from Ollama.'));
@@ -53,7 +47,7 @@ export async function init() {
         default: current.theme || 'default',
       },
     ]);
-    
+
     saveConfig(answers);
     console.log(chalk.green('Configuration saved!'));
   } catch (error) {

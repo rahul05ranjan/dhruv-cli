@@ -215,33 +215,21 @@ async function checkAIService(): Promise<HealthCheckResult[]> {
   const results: HealthCheckResult[] = [];
 
   try {
-    // Check if Ollama is running (basic connectivity test)
-    const { Ollama } = await import('ollama');
-
-    try {
-      const ollama = new Ollama();
-      await ollama.list();
-      results.push({
-        category: 'AI Service',
-        status: 'pass',
-        message: 'Ollama service is running and accessible'
-      });
-    } catch (error) {
-      results.push({
-        category: 'AI Service',
-        status: 'fail',
-        message: 'Ollama service is not accessible',
-        details: error,
-        recommendation: 'Start Ollama with "ollama serve"'
-      });
-    }
-
+    // Reuses the AI module's seam — no private Ollama connection here.
+    const { listModels } = await import('../core/ai.js');
+    await listModels();
+    results.push({
+      category: 'AI Service',
+      status: 'pass',
+      message: 'Ollama service is running and accessible'
+    });
   } catch (error) {
     results.push({
       category: 'AI Service',
       status: 'fail',
-      message: `AI service check failed: ${(error as Error).message}`,
-      details: error
+      message: 'Ollama service is not accessible',
+      details: error,
+      recommendation: 'Start Ollama with "ollama serve"'
     });
   }
 
