@@ -9,7 +9,7 @@ on:
     - cron: '0 2 * * 1' # Weekly security scans
 
 env:
-  NODE_VERSION: '20.8.1'
+  NODE_VERSION: '22.14.0'
   NODE_VERSION_MATRIX: '[18.x, 20.x, 21.x]'
 
 permissions:
