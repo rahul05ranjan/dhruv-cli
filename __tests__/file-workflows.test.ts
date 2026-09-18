@@ -99,6 +99,22 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).not.toContain('node_modules/library/ignored.ts');
   });
 
+  it('excludes build and framework cache directories during recursive review', async () => {
+    fs.mkdirSync(path.join(root, '.next'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'vendor'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.next', 'bundle.js'), 'console.log("cached");');
+    fs.writeFileSync(path.join(root, 'vendor', 'lib.go'), 'package vendor');
+    fs.writeFileSync(path.join(root, 'src', 'main.ts'), 'export const main = 1;');
+
+    await review(root);
+
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0].prompt).toContain('src/main.ts');
+    expect(client.requests[0].prompt).not.toContain('.next/bundle.js');
+    expect(client.requests[0].prompt).not.toContain('vendor/lib.go');
+  });
+
   it('includes detected project context in review requests', async () => {
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ devDependencies: { typescript: '^5.0.0' } }));
     fs.writeFileSync(path.join(root, 'index.ts'), 'export const value = 1;');
