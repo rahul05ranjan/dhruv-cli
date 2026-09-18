@@ -80,6 +80,10 @@ jobs:
     environment: production
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Provenance makes the plugin's `npm publish` perform its own OIDC
+      # exchange (trusted publisher). The plugin mints but drops the token,
+      # so without this the publish step runs credential-less (ENEEDAUTH).
+      NPM_CONFIG_PROVENANCE: 'true'
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
