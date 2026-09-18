@@ -184,7 +184,7 @@ jobs:
 
       # Scorecard publishing only permits approved actions in its own job.
       - name: Container and dependency scan
-        uses: anchore/scan-action@v3
+        uses: anchore/scan-action@v7.4.2
         id: scan
         with:
           path: "."
