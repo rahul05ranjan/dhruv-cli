@@ -37,6 +37,27 @@ describe('CLI output contract', () => {
 
     expect(result.stdout).toContain('status');
     expect(result.stdout).toContain('--json');
+    expect(result.stdout).toContain('tests documentation docs component');
+  });
+
+  it('generates valid zsh and fish completion scripts with subcommands', async () => {
+    const zshResult = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'completion', 'zsh'],
+      { cwd: repoRoot, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
+    );
+    expect(zshResult.stdout).toContain('#compdef dhruv');
+    expect(zshResult.stdout).toContain('generate');
+    expect(zshResult.stdout).not.toContain('\u001b[');
+
+    const fishResult = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'completion', 'fish'],
+      { cwd: repoRoot, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
+    );
+    expect(fishResult.stdout).toContain('complete -c dhruv');
+    expect(fishResult.stdout).toContain('__fish_seen_subcommand_from generate');
+    expect(fishResult.stdout).not.toContain('\u001b[');
   });
 
   it('rejects unsupported completion shells', async () => {
