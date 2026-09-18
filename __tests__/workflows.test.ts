@@ -13,7 +13,7 @@ interface Workflow {
   on: Record<string, unknown>;
   env?: Record<string, string>;
   permissions?: Record<string, string>;
-  jobs: Record<string, { steps: Step[] }>;
+  jobs: Record<string, { steps: Step[]; if?: string }>;
 }
 
 const root = resolve(__dirname, '..');
@@ -65,6 +65,23 @@ describe('release workflow requirements', () => {
           job.steps.some(step => /npx semantic-release|npm publish(?! --dry-run)/.test(step.run ?? '')));
       });
     expect(publishers).toEqual(['release.yml']);
+  });
+});
+
+describe('workflow trigger boundaries', () => {
+  it('runs branch and pull-request validation only for the default branch', () => {
+    for (const name of ['ci.yml', 'contribution.yml', 'labeler.yml', 'dependabot-auto-merge.yml']) {
+      const config = workflow(name);
+      const event = config.on[name === 'ci.yml' ? 'push' : 'pull_request'] as { branches?: string[] };
+      expect(event.branches).toEqual(['main']);
+    }
+  });
+
+  it('keeps expensive security jobs off pull-request runs', () => {
+    const config = workflow('security.yml');
+    for (const name of ['license-check', 'supply-chain', 'sbom-generation']) {
+      expect(config.jobs[name]?.if).toBe("github.event_name != 'pull_request'");
+    }
   });
 });
 
