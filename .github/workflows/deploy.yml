@@ -132,9 +132,9 @@ jobs:
 
       - name: Deploy to staging NPM registry
         if: github.event_name == 'release' && github.event.release.prerelease
-        run: npm publish --tag beta --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # OIDC trusted publisher (no token: a configured non-bypass token
+        # shadows OIDC and fails). --provenance triggers npm's exchange.
+        run: npm publish --tag beta --access public --provenance
 
       - name: Deploy documentation to staging
         uses: peaceiris/actions-gh-pages@v4
@@ -205,9 +205,8 @@ jobs:
           npm audit --audit-level=moderate
 
       - name: Deploy to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # OIDC trusted publisher (no token: see staging step above).
+        run: npm publish --access public --provenance
 
       - name: Deploy documentation to production
         uses: peaceiris/actions-gh-pages@v4
