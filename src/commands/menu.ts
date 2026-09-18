@@ -22,8 +22,7 @@ const commands = [
 
 export async function menu() {
   try {
-    let running = true;
-    while (running) {
+    while (true) {
       const { filter = '' } = await inquirer.prompt([
         {
           type: 'input',
@@ -45,7 +44,6 @@ export async function menu() {
       ]);
     
       if (cmd === 'exit') {
-        running = false;
         break;
       }
 
