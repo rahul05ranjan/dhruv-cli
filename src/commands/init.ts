@@ -13,8 +13,9 @@ export async function init() {
       modelChoices = models;
     }
   } catch {
-    console.log(chalk.yellow('Warning: Could not fetch available models from Ollama.'));
-    console.log(chalk.yellow('Using default model choices.'));
+    console.log(chalk.yellow('Warning: Could not connect to Ollama.'));
+    console.log(chalk.yellow('💡 Start Ollama with: ollama serve'));
+    console.log(chalk.yellow(`💡 Install default model with: ollama pull ${current.model}\n`));
   }
 
   try {
@@ -22,7 +23,7 @@ export async function init() {
       {
         type: 'list',
         name: 'model',
-        message: 'Which Ollama model do you want to use?',
+        message: `Which Ollama model do you want to use? (default: ${current.model})`,
         choices: modelChoices,
         default: current.model,
       },

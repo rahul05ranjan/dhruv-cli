@@ -70,14 +70,16 @@ export async function status() {
     } else {
       process.exitCode = 1;
       printError(`✗ Configured model '${config.model}' is not available`);
+      console.log(chalk.yellow(`💡 Install the model: ollama pull ${config.model}`));
       if (models.length > 0) {
         console.log(chalk.yellow(`Available models: ${models.join(', ')}`));
       }
     }
   } catch (error) {
+    process.exitCode = 1;
     printError('✗ Ollama connection failed');
     console.log(chalk.red((error as Error).message));
-    console.log(chalk.yellow('\nTo start Ollama, run: ollama serve'));
-    console.log(chalk.yellow('To install a model, run: ollama pull llama2'));
+    console.log(chalk.yellow('\n💡 To start Ollama, run: ollama serve'));
+    console.log(chalk.yellow(`💡 To install the configured model, run: ollama pull ${config.model}`));
   }
 }
