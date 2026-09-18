@@ -77,6 +77,8 @@ jobs:
     needs: pre-release-validation
     timeout-minutes: 15
     environment: production
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
