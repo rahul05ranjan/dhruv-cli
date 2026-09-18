@@ -6,37 +6,36 @@ import { printError } from '../utils/ux.js';
 
 /** Reads a file or the code files of a directory (up to 10), concatenated. */
 function readCode(fileOrDir: string): string | undefined {
-  let stat: fs.Stats;
+  // Read first, branch on the error: no separate existence check to race against.
+  let content: string;
   try {
-    stat = fs.statSync(fileOrDir);
-  } catch {
-    printError(`Path "${fileOrDir}" does not exist.`);
+    content = fs.readFileSync(fileOrDir, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'EISDIR') {
+      return readDirectory(fileOrDir);
+    }
+    printError(`Path "${fileOrDir}" does not exist or could not be read.`);
     return undefined;
   }
+  return content;
+}
 
-  if (!stat.isDirectory()) {
-    try {
-      return fs.readFileSync(fileOrDir, 'utf-8');
-    } catch (err) {
-      printError(`Error reading file "${fileOrDir}": ${(err as Error).message}`);
-      return undefined;
-    }
-  }
-
+function readDirectory(dir: string): string | undefined {
   const files = fs
-    .readdirSync(fileOrDir)
+    .readdirSync(dir)
     .filter((f) => f.match(/\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/))
     .slice(0, 10);
 
   if (files.length === 0) {
-    printError(`No code files found in directory "${fileOrDir}".`);
+    printError(`No code files found in directory "${dir}".`);
     return undefined;
   }
 
   let code = '';
   for (const f of files) {
     try {
-      code += `\n// File: ${f}\n${fs.readFileSync(path.join(fileOrDir, f), 'utf-8')}\n`;
+      code += `\n// File: ${f}\n${fs.readFileSync(path.join(dir, f), 'utf-8')}\n`;
     } catch (err) {
       console.error(`Error reading file ${f}:`, err);
     }

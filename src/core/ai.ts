@@ -55,12 +55,13 @@ function cacheKey(request: AIRequest, model: string): string {
 function readCache(request: AIRequest, model: string): string | undefined {
   const file = cacheKey(request, model);
   try {
+    const cached = fs.readFileSync(file, 'utf-8');
     const stats = fs.statSync(file);
     if (Date.now() - stats.mtimeMs > CACHE_EXPIRY_MS) {
       fs.unlinkSync(file);
       return undefined;
     }
-    return fs.readFileSync(file, 'utf-8');
+    return cached;
   } catch {
     return undefined;
   }
