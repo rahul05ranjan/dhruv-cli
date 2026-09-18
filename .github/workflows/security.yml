@@ -33,8 +33,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: main
-          head: HEAD
+          # Use the action's event-aware range (push, PR, or full history).
           extra_args: --debug --only-verified
 
   license-check:
@@ -155,14 +154,14 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@v2.3.1
+        uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload SARIF results
-        if: always()
+        if: always() && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
@@ -176,7 +175,7 @@ jobs:
           output-format: sarif
 
       - name: Upload Anchore scan SARIF file
-        if: always()
+        if: always() && steps.scan.outputs.sarif != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: results.sarif
+          sarif_file: ${{ steps.scan.outputs.sarif }}
