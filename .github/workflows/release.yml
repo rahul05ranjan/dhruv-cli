@@ -79,10 +79,7 @@ jobs:
     timeout-minutes: 15
     environment: production
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # Provenance makes the plugin's `npm publish` perform its own OIDC
-      # exchange (trusted publisher). The plugin mints but drops the token,
-      # so without this the publish step runs credential-less (ENEEDAUTH).
+      # Authentication uses OIDC with npm 11.5.1+; provenance is an attestation.
       NPM_CONFIG_PROVENANCE: 'true'
     steps:
       - name: Harden Runner
@@ -111,6 +108,9 @@ jobs:
       - name: Generate documentation
         run: npm run docs
 
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.17.0
+
       - name: Generate changelog
         run: |
           npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
@@ -118,7 +118,7 @@ jobs:
 
       - name: Create Release PR
         if: github.event_name == 'workflow_dispatch'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore(release): prepare release ${{ github.event.inputs.release_type }}'
@@ -147,20 +147,14 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          # Install semantic-release if not already installed
-          npm install --no-save semantic-release @semantic-release/changelog @semantic-release/git
-          npx semantic-release
+        run: npx semantic-release
 
       - name: Manual publish for workflow dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
           # For manual releases, update version first
           npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public --provenance
 
       - name: Update GitHub Pages
         if: startsWith(github.ref, 'refs/tags/v')

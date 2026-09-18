@@ -1,11 +1,7 @@
 name: Build & Publish
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+  # Automatic main releases are owned by release.yml.
   workflow_dispatch:
     inputs:
       version_type:
@@ -44,9 +40,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.8.1'
+          node-version: '22.14.0'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.17.0
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
@@ -83,33 +82,11 @@ jobs:
             echo "Version $CURRENT_VERSION is new, can publish"
           fi
 
-      - name: Bump version automatically
-        if: steps.check_version.outputs.needs_version_bump == 'true' && github.event_name == 'push'
-        run: |
-          # Get commit messages to determine version bump type
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          
-          if [[ $COMMIT_MSG =~ BREAKING\ CHANGE ]] || [[ $COMMIT_MSG =~ ^feat!: ]] || [[ $COMMIT_MSG =~ ^fix!: ]]; then
-            VERSION_TYPE="major"
-          elif [[ $COMMIT_MSG =~ ^feat: ]]; then
-            VERSION_TYPE="minor"
-          else
-            VERSION_TYPE="patch"
-          fi
-          
-          echo "Auto-bumping version: $VERSION_TYPE"
-          npm version $VERSION_TYPE --no-git-tag-version
-          
-          # Commit the version bump
-          git add package.json
-          git commit -m "chore: bump version to $(node -p "require('./package.json').version") [skip ci]"
-          git push
-
       - name: Manual version bump
         if: github.event_name == 'workflow_dispatch'
         run: |
           npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: bump version to $(node -p "require('./package.json').version") [skip ci]"
           git push
 
@@ -131,10 +108,7 @@ jobs:
           fi
 
       - name: Publish to NPM
-        # No NODE_AUTH_TOKEN: plain `npm publish` uses the OIDC trusted
-        # publisher (id-token: write is granted workflow-wide). A configured
-        # token would shadow OIDC and fail (non-bypass tokens get EOTP/403).
-        # --provenance triggers npm's own OIDC exchange + attestation.
+        # npm 11.5.1+ uses the workflow's OIDC identity without a stored token.
         run: |
           echo "Publishing version ${{ steps.final_version.outputs.version }}"
           npm publish --access public --tag latest --provenance

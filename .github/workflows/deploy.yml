@@ -25,7 +25,7 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: '20.8.1'
+  NODE_VERSION: '22.14.0'
   REGISTRY_URL: 'https://registry.npmjs.org'
 
 jobs:
@@ -125,6 +125,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.17.0
+
       - name: Build for staging
         run: |
           NODE_ENV=staging npm run build
@@ -132,8 +135,7 @@ jobs:
 
       - name: Deploy to staging NPM registry
         if: github.event_name == 'release' && github.event.release.prerelease
-        # OIDC trusted publisher (no token: a configured non-bypass token
-        # shadows OIDC and fails). --provenance triggers npm's exchange.
+        # npm 11.5.1+ authenticates using the workflow's OIDC identity.
         run: npm publish --tag beta --access public --provenance
 
       - name: Deploy documentation to staging
@@ -192,6 +194,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.17.0
 
       - name: Build for production
         run: |

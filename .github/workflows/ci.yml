@@ -263,14 +263,6 @@ jobs:
       - name: Publish package (Dry Run)
         if: github.event_name == 'pull_request'
         run: npm publish --dry-run
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Prepare for semantic release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          echo "Package prepared for semantic release"
-          echo "Version will be determined by conventional commits"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -283,14 +275,6 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
 
-      - name: Release (semantic-release)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
-
       - name: Notify deployment status
         if: always() && github.ref == 'refs/heads/main'
         uses: 8398a7/action-slack@v3
@@ -298,6 +282,5 @@ jobs:
         with:
           status: ${{ job.status }}
           channel: '#deployments'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
