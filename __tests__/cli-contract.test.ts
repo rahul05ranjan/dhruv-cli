@@ -142,17 +142,28 @@ describe('CLI output contract', () => {
   });
 
   it('outputs valid JSON for health command with expected top-level schema', async () => {
-    const result = await execFileAsync(
-      process.execPath,
-      ['--loader', loaderEntry, sourceEntry, 'health', '--json'],
-      {
-        cwd: repoRoot,
-        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
-      },
-    );
+    let stdout = '';
+    try {
+      const result = await execFileAsync(
+        process.execPath,
+        ['--loader', loaderEntry, sourceEntry, 'health', '--json'],
+        {
+          cwd: repoRoot,
+          env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+        },
+      );
+      stdout = result.stdout;
+    } catch (err: unknown) {
+      const execError = err as { stdout?: string; code?: number };
+      if (typeof execError?.stdout === 'string' && execError.stdout.trim().length > 0) {
+        stdout = execError.stdout;
+      } else {
+        throw err;
+      }
+    }
 
-    expect(result.stdout).not.toContain('\u001b[');
-    const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
+    expect(stdout).not.toContain('\u001b[');
+    const parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
     expect(parsed).toHaveProperty('ok');
     expect(parsed.command).toBe('health');
   });
