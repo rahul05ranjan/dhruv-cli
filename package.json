@@ -1,6 +1,6 @@
 {
   "name": "@rahul05ranjan/dhruv-cli",
-  "version": "0.0.0-development",
+  "version": "1.4.0",
   "description": "AI-powered CLI assistant for developers using Ollama",
   "keywords": [
     "ai",
@@ -72,6 +72,12 @@
   "devDependencies": {
     "@eslint/js": "^9.30.1",
     "@lhci/cli": "^0.15.1",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^12.0.0",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^10.3.5",
+    "@semantic-release/npm": "^12.0.2",
+    "@semantic-release/release-notes-generator": "^12.1.0",
     "@types/inquirer": "^9.0.8",
     "@types/jest": "^30.0.0",
     "@types/nock": "^10.0.3",

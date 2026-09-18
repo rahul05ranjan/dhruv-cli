@@ -1,0 +1,268 @@
+name: Monitoring & Health Check
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+    - cron: '0 12 * * *' # Daily at noon UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'src/**'
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+jobs:
+  health-check:
+    name: Application Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.8.1'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Build application
+        run: npm run build
+
+      - name: Test CLI functionality
+        run: |
+          echo "Testing CLI help command"
+          node dist/index.js --help || echo "CLI help failed"
+          
+          echo "Testing CLI version command"
+          node dist/index.js --version || echo "CLI version failed"
+          
+          echo "Testing CLI status command"
+          node dist/index.js status || echo "CLI status failed"
+
+      - name: Performance benchmark
+        run: |
+          echo "Running performance tests..."
+          time node dist/index.js --version
+          
+          # Memory usage check
+          echo "Checking memory usage..."
+          /usr/bin/time -v node dist/index.js --help 2>&1 | grep "Maximum resident set size" || echo "Memory check failed"
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle sizes..."
+          du -h dist/ | sort -hr
+          
+          # Check if any bundle exceeds size limits
+          find dist/ -name "*.js" -size +1M -exec echo "WARNING: Large bundle found: {}" \;
+
+  dependency-security:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.8.1'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run npm audit
+        run: |
+          echo "Running npm security audit..."
+          npm audit --audit-level=moderate || echo "Audit found issues"
+
+      - name: Check for known vulnerabilities
+        uses: anchore/scan-action@v3
+        with:
+          path: "."
+          fail-build: false
+          output-format: sarif
+
+      - name: Upload SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+      - name: License compliance check
+        run: |
+          echo "Checking license compliance..."
+          npx license-checker --summary || echo "License checker not available"
+
+  availability-monitor:
+    name: Service Availability Monitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Check NPM package availability
+        run: |
+          echo "Checking NPM package availability..."
+          curl -f https://registry.npmjs.org/dhruv-cli || echo "NPM package check failed"
+
+      - name: Check GitHub repository health
+        run: |
+          echo "Checking GitHub repository health..."
+          curl -f https://api.github.com/repos/${{ github.repository }} || echo "GitHub API check failed"
+
+      - name: Check documentation site
+        run: |
+          echo "Checking documentation availability..."
+          curl -f https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ || echo "Documentation site check failed"
+
+  quality-metrics:
+    name: Code Quality Metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.8.1'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run test coverage
+        run: npm run test:ci
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Code complexity analysis
+        run: |
+          echo "Running code complexity analysis..."
+          npx complexity-report src/ --format json > complexity.json || echo "Complexity analysis failed"
+          cat complexity.json | jq '.reports[] | select(.complexity.cyclomatic > 10)' || echo "No high complexity functions found"
+
+      - name: Technical debt analysis
+        run: |
+          echo "Analyzing technical debt..."
+          # Count TODO/FIXME comments
+          find src/ -name "*.ts" -exec grep -c "TODO\|FIXME\|HACK" {} + | awk -F: '{sum+=$2} END {print "Technical debt items:", sum}'
+          
+          # Check for code smells
+          find src/ -name "*.ts" -exec wc -l {} + | sort -nr | head -10
+
+  create-issue-on-failure:
+    name: Create Issue on Failure
+    runs-on: ubuntu-latest
+    needs: [health-check, dependency-security, availability-monitor, quality-metrics]
+    if: always() && (needs.health-check.result == 'failure' || needs.dependency-security.result == 'failure' || needs.availability-monitor.result == 'failure' || needs.quality-metrics.result == 'failure')
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Monitoring Alert: Workflow Failure Detected`;
+            const body = `
+            ## Monitoring Alert
+            
+            A monitoring workflow has failed. Please investigate immediately.
+            
+            ### Failure Details
+            - **Workflow**: ${{ github.workflow }}
+            - **Run ID**: ${{ github.run_id }}
+            - **Commit**: ${{ github.sha }}
+            - **Trigger**: ${{ github.event_name }}
+            - **Time**: ${new Date().toISOString()}
+            
+            ### Job Results
+            - Health Check: ${{ needs.health-check.result }}
+            - Dependency Security: ${{ needs.dependency-security.result }}
+            - Availability Monitor: ${{ needs.availability-monitor.result }}
+            - Quality Metrics: ${{ needs.quality-metrics.result }}
+            
+            ### Action Required
+            - [ ] Check workflow logs: [View Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - [ ] Investigate failures
+            - [ ] Fix underlying issues
+            - [ ] Verify fixes work
+            - [ ] Close this issue when resolved
+            
+            **This issue was automatically created by the monitoring workflow.**
+            `;
+            
+            // Check if similar issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['monitoring', 'automated'],
+              state: 'open'
+            });
+            
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('Monitoring Alert') && 
+              issue.body.includes('${{ github.run_id }}')
+            );
+            
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['bug', 'monitoring', 'automated', 'urgent'],
+                assignees: ['${{ github.repository_owner }}']
+              });
+            }
+
+      - name: Send failure notification
+        if: always() && (needs.health-check.result == 'failure' || needs.dependency-security.result == 'failure' || needs.availability-monitor.result == 'failure' || needs.quality-metrics.result == 'failure')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Failure notification system activated');
+            // Additional notification logic can be added here

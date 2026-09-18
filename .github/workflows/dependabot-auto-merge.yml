@@ -6,14 +6,73 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
 
 jobs:
-  auto-merge:
-    if: github.actor == 'dependabot[bot]'
+  auto-approve:
+    name: Auto Approve Dependabot PRs
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Enable auto-merge for Dependabot PRs
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Approve Dependabot PRs
+        uses: hmarr/auto-approve-action@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  auto-merge:
+    name: Auto Merge Dependabot PRs
+    needs: auto-approve
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Get Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
+
+      - name: Enable auto-merge for minor updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' && contains(steps.metadata.outputs.dependency-names, '@types/')
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash
+
+      - name: Comment on major updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🚨 **Major Version Update Detected**
+            
+            This PR updates a dependency to a new major version. Please review the changelog and test thoroughly before merging.
+            
+            **Dependency:** ${{ steps.metadata.outputs.dependency-names }}
+            **Update Type:** ${{ steps.metadata.outputs.update-type }}
+            
+            This PR will not be auto-merged and requires manual review.
