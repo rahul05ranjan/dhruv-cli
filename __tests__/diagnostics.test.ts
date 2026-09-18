@@ -152,4 +152,28 @@ describe('diagnostic commands', () => {
       metricsCollector.resetPersistent();
     }
   });
+
+  it('tolerates filesystem storage failures without throwing during recording', () => {
+    const fs = require('node:fs');
+    const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {
+      const err = new Error('EACCES: permission denied');
+      (err as NodeJS.ErrnoException).code = 'EACCES';
+      throw err;
+    });
+
+    expect(() => {
+      metricsCollector.recordCommand('explain', 100, true);
+    }).not.toThrow();
+
+    writeSpy.mockRestore();
+    metricsCollector.resetPersistent();
+  });
+
+  it('resets local metrics intentionally and clears persisted state', () => {
+    metricsCollector.recordCommand('explain', 200, true);
+    expect(metricsCollector.getSummary().commands.explain.runs).toBeGreaterThan(0);
+
+    metricsCollector.resetPersistent();
+    expect(metricsCollector.getSummary().commands.explain).toBeUndefined();
+  });
 });
