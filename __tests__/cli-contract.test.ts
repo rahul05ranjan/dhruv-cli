@@ -4,8 +4,10 @@ import { promisify } from 'node:util';
 import { resolve } from 'node:path';
 
 const execFileAsync = promisify(execFile);
-const sourceEntry = resolve(__dirname, '../src/index.ts');
-const loaderEntry = resolve(__dirname, '../node_modules/ts-node/esm.mjs');
+const repoRoot = resolve(__dirname, '..');
+// Package/relative specifiers so Windows does not pass `D:\...` into the ESM loader.
+const sourceEntry = './src/index.ts';
+const loaderEntry = 'ts-node/esm';
 
 describe('CLI output contract', () => {
   it('keeps shell completion stdout free of startup telemetry', async () => {
@@ -13,7 +15,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'completion', 'bash'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );
@@ -28,7 +30,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'completion', 'bash'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );
@@ -38,12 +40,10 @@ describe('CLI output contract', () => {
   });
 
   it('rejects unsupported completion shells', async () => {
-    const cwd = resolve(__dirname, '..');
-
     await expect(execFileAsync(
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'completion', 'powershell'],
-      { cwd, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
+      { cwd: repoRoot, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
     )).rejects.toMatchObject({ code: 2 });
   });
 
@@ -52,7 +52,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'security-check', '--help'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );
@@ -65,7 +65,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'generate', '--help'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );
@@ -80,7 +80,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'metrics', '--help'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );
@@ -94,7 +94,7 @@ describe('CLI output contract', () => {
       process.execPath,
       ['--loader', loaderEntry, sourceEntry, 'health', '--help'],
       {
-        cwd: resolve(__dirname, '..'),
+        cwd: repoRoot,
         env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
       },
     );

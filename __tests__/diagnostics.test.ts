@@ -74,6 +74,14 @@ describe('diagnostic commands', () => {
       return true;
     });
 
+    const memory = jest.spyOn(process, 'memoryUsage').mockReturnValue({
+      rss: 40 * 1024 * 1024,
+      heapTotal: 30 * 1024 * 1024,
+      heapUsed: 20 * 1024 * 1024,
+      external: 1024 * 1024,
+      arrayBuffers: 0,
+    });
+
     try {
       await health();
       const result = JSON.parse(output.join('')) as Record<string, unknown>;
@@ -81,6 +89,7 @@ describe('diagnostic commands', () => {
       expect(result).toHaveProperty('results');
       expect(result).toHaveProperty('summary');
     } finally {
+      memory.mockRestore();
       write.mockRestore();
       saveConfig({ responseFormat: 'text' });
     }
