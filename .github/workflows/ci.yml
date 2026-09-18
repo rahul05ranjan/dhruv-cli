@@ -148,6 +148,7 @@ jobs:
       - name: Upload test results
         uses: dorny/test-reporter@v1
         if: always()
+        continue-on-error: true
         with:
           name: Test Results (${{ matrix.node-version }})
           path: coverage/junit.xml

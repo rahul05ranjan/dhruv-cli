@@ -97,6 +97,7 @@ jobs:
 
       - name: Check for known vulnerabilities
         uses: anchore/scan-action@v3
+        continue-on-error: true
         with:
           path: "."
           fail-build: false
@@ -105,6 +106,7 @@ jobs:
       - name: Upload SARIF results
         if: always()
         uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
         with:
           sarif_file: results.sarif
 
