@@ -131,11 +131,12 @@ jobs:
           fi
 
       - name: Publish to NPM
+        # No NODE_AUTH_TOKEN: plain `npm publish` uses the OIDC trusted
+        # publisher (id-token: write is granted workflow-wide). A configured
+        # token would shadow OIDC and fail (non-bypass tokens get EOTP/403).
         run: |
           echo "Publishing version ${{ steps.final_version.outputs.version }}"
           npm publish --access public --tag latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
