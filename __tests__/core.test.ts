@@ -7,7 +7,7 @@ import {
 } from '../src/core/ai';
 import { loadConfig, saveConfig } from '../src/config/config';
 import { createSpinner } from '../src/utils/ux';
-import { detectProjectType } from '../src/utils/projectType';
+import { detectProjectType, detectProjectDetails } from '../src/utils/projectType';
 import { getSystemMessage } from '../src/core/prompts';
 import { runCommand } from '../src/core/command-runner';
 import fs from 'fs';
@@ -204,7 +204,52 @@ describe('Dhruv CLI Core Systems', () => {
       const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
       mockReadFileSync.mockReturnValue('{ malformed');
 
+      const details = detectProjectDetails();
+      expect(details.type).toBe('unknown');
+      expect(details.diagnostic).toContain('Malformed package.json');
       expect(detectProjectType()).toBe('unknown');
+
+      mockExistsSync.mockRestore();
+      mockReadFileSync.mockRestore();
+    });
+
+    it('should detect Python project with FastAPI framework', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'requirements.txt');
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      mockReadFileSync.mockReturnValue('fastapi>=0.100.0\nuvicorn>=0.20.0');
+
+      expect(detectProjectType()).toBe('python-fastapi');
+
+      mockExistsSync.mockRestore();
+      mockReadFileSync.mockRestore();
+    });
+
+    it('should detect Go project from go.mod', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'go.mod');
+
+      expect(detectProjectType()).toBe('go');
+
+      mockExistsSync.mockRestore();
+    });
+
+    it('should detect Rust project from Cargo.toml', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'Cargo.toml');
+
+      expect(detectProjectType()).toBe('rust');
+
+      mockExistsSync.mockRestore();
+    });
+
+    it('should detect Java Spring Boot project', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'pom.xml');
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      mockReadFileSync.mockReturnValue('<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId></dependency>');
+
+      expect(detectProjectType()).toBe('java-spring-boot');
 
       mockExistsSync.mockRestore();
       mockReadFileSync.mockRestore();
