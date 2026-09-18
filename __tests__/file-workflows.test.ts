@@ -202,6 +202,17 @@ describe('file analysis commands', () => {
     expect(fs.existsSync(path.join(root, 'sample.test.ts'))).toBe(true);
   });
 
+  it('preserves the Python language and conventions when generating tests', async () => {
+    const source = path.join(root, 'math_utils.py');
+    fs.writeFileSync(source, 'def add(a, b):\n    return a + b\n');
+
+    await generate('tests', source, { apply: true });
+
+    expect(client.requests[0].prompt).toContain('Python code');
+    expect(client.requests[0].prompt).toContain('pytest');
+    expect(fs.existsSync(path.join(root, 'math_utils.test.py'))).toBe(true);
+  });
+
   it('previews generated tests without writing by default', async () => {
     const source = path.join(root, 'preview.ts');
     fs.writeFileSync(source, 'export const value = 1;');
