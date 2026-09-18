@@ -6,12 +6,14 @@ import { printError } from '../utils/ux.js';
 
 /** Reads a file or the code files of a directory (up to 10), concatenated. */
 function readCode(fileOrDir: string): string | undefined {
-  if (!fs.existsSync(fileOrDir)) {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(fileOrDir);
+  } catch {
     printError(`Path "${fileOrDir}" does not exist.`);
     return undefined;
   }
 
-  const stat = fs.statSync(fileOrDir);
   if (!stat.isDirectory()) {
     try {
       return fs.readFileSync(fileOrDir, 'utf-8');

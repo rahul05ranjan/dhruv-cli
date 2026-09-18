@@ -55,7 +55,6 @@ function cacheKey(request: AIRequest, model: string): string {
 function readCache(request: AIRequest, model: string): string | undefined {
   const file = cacheKey(request, model);
   try {
-    if (!fs.existsSync(file)) return undefined;
     const stats = fs.statSync(file);
     if (Date.now() - stats.mtimeMs > CACHE_EXPIRY_MS) {
       fs.unlinkSync(file);
