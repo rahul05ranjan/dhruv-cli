@@ -12,6 +12,7 @@ interface Step {
 interface Workflow {
   on: Record<string, unknown>;
   env?: Record<string, string>;
+  permissions?: Record<string, string>;
   jobs: Record<string, { steps: Step[] }>;
 }
 
@@ -74,10 +75,21 @@ describe('security workflow requirements', () => {
   });
 
   it('uploads the Anchore report instead of uploading the Scorecard report twice', () => {
-    const steps = workflow('security.yml').jobs['security-scorecard'].steps;
+    const steps = Object.values(workflow('security.yml').jobs).flatMap(job => job.steps);
     const uploads = steps.filter(step => step.uses?.includes('/upload-sarif@'));
     expect(uploads.map(step => step.with?.sarif_file)).toEqual([
       'results.sarif', '${{ steps.scan.outputs.sarif }}',
     ]);
+  });
+
+  it('meets Scorecard publishing restrictions on permissions and job isolation', () => {
+    const config = workflow('security.yml');
+    expect(Object.values(config.permissions ?? {})).not.toContain('write');
+    // Scorecard's results API accepts only these actions in the producing job.
+    const allowed = ['actions/checkout', 'actions/upload-artifact',
+      'github/codeql-action/upload-sarif', 'ossf/scorecard-action', 'step-security/harden-runner'];
+    for (const step of config.jobs['security-scorecard'].steps) {
+      expect(allowed).toContain(step.uses?.split('@')[0]);
+    }
   });
 });
