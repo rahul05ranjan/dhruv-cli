@@ -5,13 +5,30 @@ import { getSystemMessage } from '../core/prompts.js';
 import { printError } from '../utils/ux.js';
 
 const CODE_FILE = /\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/;
-const IGNORED_DIRECTORIES = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.dhruv-cache', 'logs']);
+const IGNORED_DIRECTORIES = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  'coverage',
+  '.dhruv-cache',
+  'logs',
+  '.next',
+  '.turbo',
+  '__pycache__',
+  '.pytest_cache',
+  'target',
+  'vendor',
+]);
 
 function redactSensitiveContent(content: string): string {
   return content
     .replace(/(\b(?:api[_-]?key|secret|token|password|authorization)\s*[:=]\s*["'`])[^"'`\r\n]+(["'`])/gi, '$1[REDACTED]$2')
     .replace(/\b(?:sk|pk)-[a-z0-9_-]{8,}\b/gi, '[REDACTED]')
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]');
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,255}\b/g, '[REDACTED]')
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[REDACTED]')
+    .replace(/-----BEGIN (?:RSA|OPENSSH|EC|PGP|DSA)? PRIVATE KEY-----[\s\S]*?-----END (?:RSA|OPENSSH|EC|PGP|DSA)? PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]');
 }
 
 interface SecurityFinding {
@@ -46,6 +63,20 @@ function findHighConfidenceFindings(content: string): SecurityFinding[] {
         severity: 'high',
         description: 'bearer token detected',
         remediation: 'revoke the token and use a secure runtime secret store',
+      });
+    } else if (/\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,255}\b/.test(line)) {
+      findings.push({
+        line: index + 1,
+        severity: 'high',
+        description: 'GitHub token detected',
+        remediation: 'revoke the GitHub token and store it in GitHub Secrets or environment variables',
+      });
+    } else if (/\bAKIA[0-9A-Z]{16}\b/.test(line)) {
+      findings.push({
+        line: index + 1,
+        severity: 'high',
+        description: 'AWS access key ID detected',
+        remediation: 'rotate the AWS access key and use IAM roles or AWS Secrets Manager',
       });
     }
   });

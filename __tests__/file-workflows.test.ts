@@ -145,6 +145,18 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).toContain('rotate the credential');
   });
 
+  it('redacts GitHub tokens and AWS keys with remediation guidance', async () => {
+    const source = path.join(root, 'secrets.ts');
+    fs.writeFileSync(source, 'const GITHUB_TOKEN = "ghp_1234567890abcdefghijklmnopqrstuvwxyz";\nconst AWS_KEY = "AKIA1234567890ABCDEF";');
+
+    await securityCheck(source);
+
+    expect(client.requests[0].prompt).not.toContain('ghp_1234567890abcdefghijklmnopqrstuvwxyz');
+    expect(client.requests[0].prompt).not.toContain('AKIA1234567890ABCDEF');
+    expect(client.requests[0].prompt).toContain('GitHub token detected');
+    expect(client.requests[0].prompt).toContain('AWS access key ID detected');
+  });
+
   it('scans nested project files without sending dependency directories', async () => {
     fs.mkdirSync(path.join(root, 'src', 'nested'), { recursive: true });
     fs.mkdirSync(path.join(root, 'node_modules', 'library'), { recursive: true });
