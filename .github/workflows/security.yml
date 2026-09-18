@@ -85,7 +85,7 @@ jobs:
         run: npm ci --prefer-offline --no-audit
 
       - name: Run OSV Scanner
-        uses: google/osv-scanner-action@v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
         with:
           scan-args: |-
             --recursive

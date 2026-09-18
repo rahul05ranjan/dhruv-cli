@@ -212,6 +212,7 @@ jobs:
 
       - name: Notify stakeholders
         uses: 8398a7/action-slack@v3
+        continue-on-error: true
         with:
           status: 'success'
           channel: '#releases'

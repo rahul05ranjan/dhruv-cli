@@ -290,8 +290,9 @@ jobs:
         run: npx semantic-release
 
       - name: Notify deployment status
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         uses: 8398a7/action-slack@v3
+        continue-on-error: true
         with:
           status: ${{ job.status }}
           channel: '#deployments'
