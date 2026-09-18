@@ -1,537 +1,635 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dhruv CLI - AI-Powered Developer Assistant</title>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="icon" href="https://cdn.jsdelivr.net/gh/rahul05ranjan/dhruv-cli/docs/dhruv-favicon.png">
-  <style>
-    :root {
-      --primary: #eebf63;
-      --bg: #181c2f;
-      --bg2: #232946;
-      --text: #f4f4f4;
-      --text2: #a1a6b4;
-      --accent: #5f6fff;
-      --shadow: 0 4px 24px #0003;
-      --radius: 1rem;
-      --transition: 0.2s cubic-bezier(.4,2,.6,1);
-    }
-    [data-theme="light"] {
-      --bg: #f4f4f4;
-      --bg2: #fff;
-      --text: #232946;
-      --text2: #555;
-      --accent: #5f6fff;
-      --shadow: 0 4px 24px #0001;
-    }
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', Arial, sans-serif;
-      background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 100%);
-      color: var(--text);
-      transition: background 0.5s, color 0.5s;
-    }
-    body {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .sidebar {
-      position: fixed;
-      top: 0; left: 0;
-      width: 220px;
-      height: 100vh;
-      background: var(--bg2);
-      box-shadow: 2px 0 16px #0002;
-      padding: 2rem 1rem 1rem 1rem;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-      transition: left var(--transition);
-    }
-    .sidebar h2 {
-      font-size: 1.3rem;
-      color: var(--primary);
-      margin: 0 0 1rem 0;
-      letter-spacing: 1px;
-    }
-    .sidebar nav {
-      display: flex;
-      flex-direction: column;
-      gap: 0.7rem;
-    }
-    .sidebar a {
-      color: var(--text2);
-      text-decoration: none;
-      font-weight: 500;
-      padding: 0.3em 0.7em;
-      border-radius: 6px;
-      transition: background var(--transition), color var(--transition);
-    }
-    .sidebar a.active, .sidebar a:hover {
-      background: var(--primary);
-      color: var(--bg2);
-    }
-    .theme-toggle {
-      margin-top: auto;
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-      cursor: pointer;
-      color: var(--primary);
-      font-size: 1.1em;
-      user-select: none;
-    }
-    .main {
-      margin-left: 240px;
-      padding: 2.5rem 2rem 2rem 2rem;
-      flex: 1;
-      transition: margin-left var(--transition);
-    }
-    @media (max-width: 900px) {
-      .sidebar { position: static; width: 100vw; height: auto; flex-direction: row; align-items: center; padding: 1rem; }
-      .sidebar nav { flex-direction: row; gap: 1rem; }
-      .main { margin-left: 0; padding: 1.5rem 0.5rem; }
-    }
-    .hero {
-      text-align: center;
-      margin-bottom: 2.5rem;
-    }
-    .hero-logo {
-      width: 70px; height: 70px; margin-bottom: 1rem;
-      filter: drop-shadow(0 2px 8px #0005);
-      border-radius: 50%;
-      background: var(--bg2);
-      display: inline-block;
-      padding: 0.5rem;
-    }
-    .hero-title {
-      font-size: 2.7rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem 0;
-      letter-spacing: 1px;
-    }
-    .hero-animated {
-      font-size: 1.3rem;
-      color: var(--primary);
-      min-height: 2.2em;
-      font-family: 'Fira Mono', monospace;
-      margin-bottom: 1.2rem;
-      animation: fadeIn 1.2s;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: none; }
-    }
-    .hero-install {
-      display: inline-block;
-      background: var(--primary);
-      color: var(--bg2);
-      font-family: 'Fira Mono', monospace;
-      font-size: 1.1em;
-      padding: 0.5em 1.2em;
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 2px 8px #0002;
-      cursor: pointer;
-      transition: background var(--transition), color var(--transition);
-      border: none;
-    }
-    .hero-install:hover { background: var(--accent); color: #fff; }
-    .badges {
-      margin: 1.2rem 0 0.5rem 0;
-      display: flex;
-      justify-content: center;
-      gap: 0.7rem;
-      flex-wrap: wrap;
-    }
-    .badges img { height: 28px; }
-    .terminal-demo {
-      background: #181c2f;
-      border-radius: 1rem;
-      box-shadow: var(--shadow);
-      max-width: 600px;
-      margin: 2rem auto 2.5rem auto;
-      padding: 1.5rem 1.2rem 1.2rem 1.2rem;
-      font-family: 'Fira Mono', monospace;
-      color: #eebf63;
-      position: relative;
-      overflow: hidden;
-    }
-    .terminal-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-      margin-bottom: 1em;
-    }
-    .term-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-    .term-dot.red { background: #ff5f56; }
-    .term-dot.yellow { background: #ffbd2e; }
-    .term-dot.green { background: #27c93f; }
-    .terminal-content {
-      min-height: 2.5em;
-      font-size: 1.1em;
-      white-space: pre-line;
-      word-break: break-word;
-      transition: color 0.2s;
-    }
-    .copy-btn {
-      position: absolute;
-      top: 1.2rem; right: 1.2rem;
-      background: var(--primary);
-      color: var(--bg2);
-      border: none;
-      border-radius: 6px;
-      padding: 0.2em 0.7em;
-      font-size: 1em;
-      cursor: pointer;
-      transition: background var(--transition), color var(--transition);
-      opacity: 0.85;
-    }
-    .copy-btn:hover { background: var(--accent); color: #fff; }
-    .tabs {
-      display: flex;
-      gap: 1.2rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid var(--bg2);
-      flex-wrap: wrap;
-    }
-    .tab {
-      padding: 0.5em 1.2em;
-      background: none;
-      border: none;
-      color: var(--text2);
-      font-size: 1.1em;
-      font-weight: 500;
-      border-radius: 8px 8px 0 0;
-      cursor: pointer;
-      transition: background var(--transition), color var(--transition);
-      outline: none;
-    }
-    .tab.active, .tab:hover {
-      background: var(--primary);
-      color: var(--bg2);
-    }
-    .tab-content { display: none; animation: fadeIn 0.7s; }
-    .tab-content.active { display: block; }
-    .collapsible {
-      background: var(--bg2);
-      color: var(--text);
-      cursor: pointer;
-      padding: 1em;
-      width: 100%;
-      border: none;
-      text-align: left;
-      outline: none;
-      font-size: 1.1em;
-      border-radius: 8px;
-      margin-bottom: 0.5em;
-      transition: background var(--transition);
-    }
-    .collapsible.active, .collapsible:hover {
-      background: var(--primary);
-      color: var(--bg2);
-    }
-    .collapsible-content {
-      padding: 0 1em 1em 1em;
-      display: none;
-      background: var(--bg2);
-      border-radius: 0 0 8px 8px;
-      margin-bottom: 1em;
-      animation: fadeIn 0.5s;
-    }
-    .collapsible-content.active { display: block; }
-    code, pre {
-      font-family: 'Fira Mono', monospace;
-      background: #181c2f;
-      color: #eebf63;
-      border-radius: 6px;
-      padding: 0.2em 0.5em;
-      font-size: 1em;
-    }
-    .plugin-example {
-      background: #181c2f;
-      border-left: 4px solid var(--primary);
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 0.5rem;
-      font-size: 1em;
-      color: var(--text);
-    }
-    .community {
-      margin: 2.5rem 0 1.5rem 0;
-      text-align: center;
-    }
-    .community a {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 600;
-      margin: 0 0.7em;
-      transition: color var(--transition);
-    }
-    .community a:hover { color: var(--accent); }
-    footer {
-      text-align: center;
-      color: var(--text2);
-      padding: 2rem 0 1rem 0;
-      font-size: 1rem;
-    }
-    @media (max-width: 700px) {
-      .main { padding: 1rem 0.2rem; }
-      .sidebar { padding: 0.7rem; }
-      .hero-title { font-size: 2rem; }
-      .terminal-demo { padding: 1rem 0.5rem; }
-    }
-  </style>
-</head>
-<body>
-  <div class="sidebar">
-    <h2>Dhruv CLI</h2>
-    <nav>
-      <a href="#hero" class="active">Home</a>
-      <a href="#features">Features</a>
-      <a href="#install">Install</a>
-      <a href="#usage">Usage</a>
-      <a href="#plugins">Plugins</a>
-      <a href="#community">Community</a>
-      <a href="https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli" target="_blank">NPM</a>
-    </nav>
-    <div class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
-      <span id="themeIcon">🌙</span> <span id="themeLabel">Dark</span>
-    </div>
-  </div>
-  <main class="main">
-    <section class="hero" id="hero">
-      <img src="https://cdn.jsdelivr.net/gh/rahul05ranjan/dhruv-cli/docs/dhruv-favicon.png" alt="Dhruv CLI Logo" class="hero-logo" />
-      <div class="hero-title">Dhruv CLI</div>
-      <div class="hero-animated" id="animatedTagline"></div>
-      <button class="hero-install" onclick="copyInstall()" id="installBtn">npm install -g @rahul05ranjan/dhruv-cli<span style='font-size:0.9em;' id='copyIcon'>📋</span></button>
-      <div style="margin-top:0.7em;">
-        <a href="https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli" target="_blank" style="color:#eebf63;font-weight:bold;">View on npm</a>
-      </div>
-      <div class="badges">
-        <img src="https://img.shields.io/github/stars/rahul05ranjan/dhruv-cli?style=social" alt="GitHub stars">
-        <img src="https://img.shields.io/npm/v/dhruv-cli?color=blue&label=npm" alt="npm version">
-        <img src="https://img.shields.io/github/workflow/status/rahul05ranjan/dhruv-cli/CI?label=build" alt="build status">
-        <img src="https://img.shields.io/github/license/rahul05ranjan/dhruv-cli?color=green" alt="license">
-      </div>
-    </section>
-    <section class="tab-content" id="installTab">
-      <h2>Install</h2>
-      <pre><code>npm install -g @rahul05ranjan/dhruv-cli</code></pre>
-      <p>Also available on <a href="https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli" target="_blank">npm</a>.</p>
-      <p>Requires <a href="https://nodejs.org/" target="_blank">Node.js</a> 18+ and <a href="https://ollama.com/" target="_blank">Ollama</a> for local AI models.</p>
-    </section>
-    <section class="tab-content" id="usageTab">
-      <h2>Usage Examples</h2>
-      <pre><code>dhruv suggest "deploy react app to vercel"
-dhruv explain "git rebase vs merge"
-dhruv fix "cors error in express"
-dhruv review src/
-dhruv optimize package.json
-dhruv security-check src/
-dhruv generate tests src/utils/helpers.js
-dhruv init
-dhruv completion bash &gt; dhruv-complete.sh</code></pre>
-      <h3>All Commands</h3>
-      <ul>
-        <li><b>suggest</b> <code>&lt;query&gt;</code> — Smart suggestions for any dev task</li>
-        <li><b>explain</b> <code>&lt;query&gt;</code> — Explain concepts, errors, or commands</li>
-        <li><b>fix</b> <code>&lt;query&gt;</code> — Get AI-powered fixes for errors</li>
-        <li><b>review</b> <code>&lt;fileOrDir&gt;</code> — Review code for improvements</li>
-        <li><b>optimize</b> <code>&lt;file&gt;</code> — Optimize files (e.g., <code>package.json</code>)</li>
-        <li><b>security-check</b> <code>[fileOrDir]</code> — Security analysis of code</li>
-        <li><b>generate</b> <code>&lt;type&gt; &lt;target&gt;</code> — Generate code/tests</li>
-        <li><b>init</b> — Interactive setup/configuration wizard</li>
-        <li><b>completion</b> <code>[shell]</code> — Output shell completion script</li>
-        <li><b>project-type</b> — Detect project type</li>
-        <li><b>hello-plugin</b> — Example plugin command</li>
-      </ul>
-    </section>
-    <section class="tab-content" id="pluginsTab">
-      <h2>Plugin Example</h2>
-      <div class="plugin-example">
-        <pre><code>export default (program) =&gt; {
-  program.command('hello-plugin').action(() =&gt; console.log('Hello from plugin!'));
-};</code></pre>
-      </div>
-      <ul>
-        <li>Add new commands by dropping ESM modules in the <code>plugins/</code> directory.</li>
-        <li>Plugins are loaded automatically before CLI parsing.</li>
-      </ul>
-    </section>
-    <section class="tab-content" id="communityTab">
-      <div class="community" id="community">
-        <h2>Open Source & Community</h2>
-        <p>Dhruv CLI is fully open source and welcomes contributions!</p>
-        <a href="https://github.com/rahul05ranjan/dhruv-cli" target="_blank">GitHub Repo</a>
-        <a href="https://github.com/rahul05ranjan/dhruv-cli/issues" target="_blank">Issues</a>
-        <a href="https://github.com/rahul05ranjan/dhruv-cli/pulls" target="_blank">Pull Requests</a>
-        <a href="https://github.com/rahul05ranjan/dhruv-cli/blob/main/CONTRIBUTING.md" target="_blank">Contributing Guide</a>
-        <div style="margin-top:1.2em;">
-          <img src="https://img.shields.io/github/contributors/rahul05ranjan/dhruv-cli?color=blue" alt="contributors">
-          <img src="https://img.shields.io/github/issues/rahul05ranjan/dhruv-cli?color=orange" alt="issues">
-          <img src="https://img.shields.io/github/last-commit/rahul05ranjan/dhruv-cli?color=green" alt="last commit">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta
+      name="description"
+      content="Dhruv CLI is a local-first AI command center for developers, powered by Ollama."
+    />
+    <title>Dhruv CLI — Your local AI command center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #e8ecf7;
+        --muted: #98a4c0;
+        --subtle: #6c7895;
+        --surface: rgba(22, 30, 53, 0.78);
+        --surface-strong: #171f35;
+        --line: rgba(146, 163, 205, 0.16);
+        --purple: #8d72ff;
+        --teal: #20d6c7;
+        --gold: #f3c969;
+        --shadow: 0 26px 80px rgba(3, 7, 18, 0.36);
+        --radius: 22px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 10% 0%, rgba(108, 74, 222, 0.19), transparent 32rem),
+          radial-gradient(circle at 90% 18%, rgba(32, 214, 199, 0.12), transparent 28rem),
+          #0b1020;
+        font-family: "Manrope", system-ui, sans-serif;
+        line-height: 1.6;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.26;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+        background-size: 72px 72px;
+        mask-image: linear-gradient(to bottom, black, transparent 75%);
+      }
+
+      a { color: inherit; }
+
+      .shell {
+        width: min(1160px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 82px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--ink);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 11px;
+        color: #0c1222;
+        background: linear-gradient(135deg, var(--gold), #ffe9a6 48%, var(--teal));
+        box-shadow: 0 8px 22px rgba(32, 214, 199, 0.2);
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .nav a { text-decoration: none; transition: color 180ms ease; }
+      .nav a:hover { color: var(--ink); }
+
+      .nav .nav-cta {
+        padding: 9px 15px;
+        border: 1px solid rgba(141, 114, 255, 0.55);
+        border-radius: 999px;
+        color: var(--ink);
+        background: rgba(141, 114, 255, 0.12);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+        gap: clamp(36px, 7vw, 96px);
+        align-items: center;
+        padding: 96px 0 84px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 22px;
+        color: var(--teal);
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--teal);
+        box-shadow: 0 0 0 5px rgba(32, 214, 199, 0.12), 0 0 22px var(--teal);
+        content: "";
+      }
+
+      h1, h2, h3, p { margin-top: 0; }
+
+      h1 {
+        max-width: 680px;
+        margin-bottom: 22px;
+        color: #f6f8ff;
+        font-size: clamp(44px, 6vw, 78px);
+        font-weight: 800;
+        letter-spacing: -0.075em;
+        line-height: 0.98;
+      }
+
+      .gradient-text {
+        color: transparent;
+        background: linear-gradient(105deg, #f3c969 10%, #f6e1a0 48%, #20d6c7 92%);
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      .hero-copy {
+        max-width: 560px;
+        margin-bottom: 32px;
+        color: var(--muted);
+        font-size: clamp(17px, 2vw, 20px);
+        line-height: 1.7;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 26px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 19px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      }
+
+      .button:hover { transform: translateY(-2px); }
+
+      .button-primary {
+        color: #0c1222;
+        background: linear-gradient(135deg, var(--gold), #ffe4a0);
+        box-shadow: 0 12px 30px rgba(243, 201, 105, 0.16);
+      }
+
+      .button-secondary {
+        border-color: var(--line);
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .install {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        width: min(100%, 520px);
+        padding: 12px 12px 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: rgba(10, 15, 30, 0.72);
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+      }
+
+      .install code { overflow: auto; color: #dfe7ff; white-space: nowrap; }
+      .prompt { color: var(--teal); }
+
+      .copy {
+        flex: 0 0 auto;
+        padding: 8px 11px;
+        border: 1px solid rgba(32, 214, 199, 0.35);
+        border-radius: 8px;
+        color: var(--teal);
+        background: rgba(32, 214, 199, 0.08);
+        cursor: pointer;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .hero-art { position: relative; }
+
+      .hero-art::before {
+        position: absolute;
+        inset: 10% -8% -8% 8%;
+        z-index: -1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(141, 114, 255, 0.2), transparent 65%);
+        content: "";
+        filter: blur(20px);
+      }
+
+      .hero-art img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .stat {
+        padding: 14px 15px;
+        border-left: 1px solid rgba(141, 114, 255, 0.5);
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .stat strong { display: block; font-size: 13px; }
+      .stat span { color: var(--subtle); font-size: 11px; }
+
+      .section { padding: 92px 0; border-top: 1px solid var(--line); }
+
+      .section-heading { max-width: 670px; margin-bottom: 38px; }
+
+      .section-kicker {
+        margin-bottom: 12px;
+        color: var(--purple);
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin-bottom: 13px;
+        color: #f6f8ff;
+        font-size: clamp(30px, 4vw, 48px);
+        letter-spacing: -0.06em;
+        line-height: 1.08;
+      }
+
+      .section-heading p { color: var(--muted); font-size: 16px; }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+      }
+
+      .feature-card, .command-card, .guide-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(145deg, rgba(28, 38, 66, 0.8), rgba(13, 19, 37, 0.84));
+        box-shadow: 0 18px 50px rgba(3, 7, 18, 0.13);
+      }
+
+      .feature-card { min-height: 226px; padding: 26px; }
+
+      .feature-icon {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        margin-bottom: 24px;
+        place-items: center;
+        border: 1px solid rgba(32, 214, 199, 0.3);
+        border-radius: 12px;
+        color: var(--teal);
+        background: rgba(32, 214, 199, 0.09);
+        font-family: "DM Mono", monospace;
+      }
+
+      h3 { margin-bottom: 8px; font-size: 18px; letter-spacing: -0.03em; }
+      .feature-card p, .guide-card p { margin-bottom: 0; color: var(--muted); font-size: 14px; }
+
+      .command-layout {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .command-card { padding: 25px; }
+
+      .command-card h3 { color: var(--gold); }
+
+      .command-list { display: grid; gap: 10px; margin: 22px 0 0; padding: 0; list-style: none; }
+
+      .command-list li {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .command-list code { color: var(--ink); font-family: "DM Mono", monospace; font-size: 12px; }
+
+      .code-window {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #090e1c;
+      }
+
+      .code-window-bar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 44px;
+        padding: 0 17px;
+        border-bottom: 1px solid var(--line);
+        color: var(--subtle);
+        font-family: "DM Mono", monospace;
+        font-size: 11px;
+      }
+
+      .window-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b; }
+      .window-dot:nth-child(2) { background: #f8c15c; }
+      .window-dot:nth-child(3) { background: #4dd89a; }
+      .code-window-bar span:last-child { margin-left: 7px; }
+
+      pre {
+        overflow: auto;
+        margin: 0;
+        padding: 26px;
+        color: #c8d2ec;
+        font: 13px/2 "DM Mono", monospace;
+      }
+
+      .code-prompt { color: var(--teal); }
+      .code-command { color: #f5f7ff; }
+      .code-comment { color: #687694; }
+      .code-highlight { color: var(--gold); }
+
+      .guide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+      .guide-card { min-height: 190px; padding: 25px; }
+
+      .step {
+        display: inline-grid;
+        width: 30px;
+        height: 30px;
+        margin-bottom: 21px;
+        place-items: center;
+        border-radius: 9px;
+        color: #0c1222;
+        background: var(--gold);
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .guide-card code { color: var(--teal); font-family: "DM Mono", monospace; font-size: 12px; }
+
+      .closing {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 28px;
+        align-items: center;
+        padding: 32px;
+        border: 1px solid rgba(141, 114, 255, 0.33);
+        border-radius: var(--radius);
+        background: linear-gradient(105deg, rgba(141, 114, 255, 0.14), rgba(32, 214, 199, 0.08));
+      }
+
+      .closing h2 { margin-bottom: 8px; font-size: clamp(27px, 4vw, 40px); }
+      .closing p { margin-bottom: 0; color: var(--muted); }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 32px 0 42px;
+        color: var(--subtle);
+        font-size: 12px;
+      }
+
+      footer a { color: var(--muted); text-decoration: none; }
+      footer a:hover { color: var(--ink); }
+
+      @media (max-width: 900px) {
+        .hero, .command-layout { grid-template-columns: 1fr; }
+        .hero { padding-top: 70px; }
+        .hero-art { max-width: 760px; }
+      }
+
+      @media (max-width: 680px) {
+        .shell { width: min(100% - 28px, 1160px); }
+        .topbar { min-height: 70px; }
+        .nav { gap: 13px; font-size: 12px; }
+        .nav a:not(.nav-cta) { display: none; }
+        .hero { padding: 63px 0 60px; }
+        h1 { font-size: clamp(43px, 14vw, 64px); }
+        .stats, .feature-grid, .guide-grid { grid-template-columns: 1fr; }
+        .section { padding: 65px 0; }
+        .closing { grid-template-columns: 1fr; padding: 25px; }
+        footer { flex-direction: column; padding-bottom: 28px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="shell topbar">
+      <a class="brand" href="#top" aria-label="Dhruv CLI home">
+        <span class="brand-mark">D</span>
+        <span>Dhruv CLI</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#commands">Commands</a>
+        <a href="#get-started">Get started</a>
+        <a href="./api/">API</a>
+        <a class="nav-cta" href="https://github.com/rahul05ranjan/dhruv-cli" target="_blank" rel="noreferrer">View on GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="shell hero">
+        <div>
+          <div class="eyebrow">Local-first · Ollama powered</div>
+          <h1>Ship smarter from <span class="gradient-text">your terminal.</span></h1>
+          <p class="hero-copy">
+            Dhruv is a focused AI command center for developers. Understand code,
+            investigate errors, improve projects, and keep your context close to home.
+          </p>
+          <div class="actions">
+            <a class="button button-primary" href="#get-started">Install Dhruv</a>
+            <a class="button button-secondary" href="https://github.com/rahul05ranjan/dhruv-cli" target="_blank" rel="noreferrer">Explore the source ↗</a>
+          </div>
+          <div class="install" aria-label="Install command">
+            <code><span class="prompt">$</span> npm install -g @rahul05ranjan/dhruv-cli</code>
+            <button class="copy" type="button" data-copy="npm install -g @rahul05ranjan/dhruv-cli">Copy</button>
+          </div>
+          <div class="stats" aria-label="Dhruv CLI highlights">
+            <div class="stat"><strong>Local by design</strong><span>Your model, your machine</span></div>
+            <div class="stat"><strong>Built for flow</strong><span>Fast, focused commands</span></div>
+            <div class="stat"><strong>Open to extend</strong><span>Plugins included</span></div>
+          </div>
         </div>
-      </div>
-    </section>
-    <div class="section">
-      <h2>Configuration & Context</h2>
-      <ul>
-        <li>Run <code>dhruv init</code> to set model, response format, and verbosity.</li>
-        <li>Project type is auto-detected for context-aware suggestions.</li>
-        <li>Works offline with local Ollama models.</li>
-      </ul>
-    </div>
-  </main>
-  <footer>
-    <div>MIT License &copy; 2025 &mdash; Dhruv CLI</div>
-    <div>Made with ❤️ for developers</div>
-  </footer>
-  <script>
-    // Animated tagline
-    const taglines = [
-      'Your AI Pair Programmer in the Terminal',
-      'Smart suggestions, code review, and more',
-      'Powered by Ollama. Fully offline. Open source.',
-      'Beautiful CLI UX. Plugin system. Community-driven.'
-    ];
-    let taglineIdx = 0;
-    function animateTagline() {
-      const el = document.getElementById('animatedTagline');
-      el.textContent = '';
-      let txt = taglines[taglineIdx];
-      let i = 0;
-      function type() {
-        if (i < txt.length) {
-          el.textContent += txt.charAt(i);
-          i++;
-          setTimeout(type, 28);
-        } else {
-          setTimeout(() => {
-            taglineIdx = (taglineIdx + 1) % taglines.length;
-            animateTagline();
-          }, 1800);
-        }
-      }
-      type();
-    }
-    animateTagline();
+        <div class="hero-art">
+          <img src="./dhruv-cli-preview.svg" alt="Dhruv CLI reviewing a project in the terminal" />
+        </div>
+      </section>
 
-    // Terminal demo animation
-    const terminalLines = [
-      'dhruv suggest "deploy react app to vercel"',
-      'dhruv explain "git rebase vs merge"',
-      'dhruv fix "cors error in express"',
-      'dhruv review src/',
-      'dhruv optimize package.json',
-      'dhruv security-check src/',
-      'dhruv generate tests src/utils/helpers.js',
-      'dhruv init',
-      'dhruv completion bash > dhruv-complete.sh'
-    ];
-    let termIdx = 0;
-    function animateTerminal() {
-      const el = document.getElementById('terminalContent');
-      el.textContent = '';
-      let txt = terminalLines[termIdx];
-      let i = 0;
-      function type() {
-        if (i < txt.length) {
-          el.textContent += txt.charAt(i);
-          i++;
-          setTimeout(type, 18);
-        } else {
-          setTimeout(() => {
-            termIdx = (termIdx + 1) % terminalLines.length;
-            animateTerminal();
-          }, 1200);
-        }
-      }
-      type();
-    }
-    animateTerminal();
+      <section class="shell section" id="capabilities">
+        <div class="section-heading">
+          <div class="section-kicker">A calm layer over complexity</div>
+          <h2>Everything useful. Nothing in the way.</h2>
+          <p>Dhruv keeps the high-value developer workflows one command away, with local models and a terminal-native experience.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon">01</div>
+            <h3>Think out loud</h3>
+            <p>Get clear explanations, practical suggestions, and structured fixes for the questions that slow you down.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">02</div>
+            <h3>Inspect with context</h3>
+            <p>Review files and directories, optimize configurations, and run security analysis close to the source.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">03</div>
+            <h3>Shape your workflow</h3>
+            <p>Use JSON output, shell completion, an interactive command palette, or add your own project plugins.</p>
+          </article>
+        </div>
+      </section>
 
-    // Copy install command
-    function copyInstall() {
-      navigator.clipboard.writeText('npm install -g @rahul05ranjan/dhruv-cli');
-      const btn = document.getElementById('installBtn');
-      const icon = document.getElementById('copyIcon');
-      icon.textContent = '✅';
-      setTimeout(() => { icon.textContent = '📋'; }, 1200);
-    }
-    // Copy terminal command
-    function copyTerminal() {
-      const el = document.getElementById('terminalContent');
-      navigator.clipboard.writeText(el.textContent);
-      const btn = document.getElementById('copyTermBtn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
-    }
-    // Tabs
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        tabContents.forEach(tc => tc.classList.remove('active'));
-        document.getElementById(tab.dataset.tab).classList.add('active');
+      <section class="shell section" id="commands">
+        <div class="section-heading">
+          <div class="section-kicker">The command surface</div>
+          <h2>From first question to final check.</h2>
+          <p>Short commands, useful defaults, and a workflow that follows the way developers actually work.</p>
+        </div>
+        <div class="command-layout">
+          <article class="command-card">
+            <h3>Ask & understand</h3>
+            <ul class="command-list">
+              <li><code>suggest &lt;query&gt;</code><span>Explore an approach</span></li>
+              <li><code>explain &lt;query&gt;</code><span>Make it clear</span></li>
+              <li><code>fix &lt;query&gt;</code><span>Find a way forward</span></li>
+              <li><code>generate &lt;type&gt; &lt;target&gt;</code><span>Make a first draft</span></li>
+            </ul>
+          </article>
+          <div class="code-window" aria-label="Dhruv CLI example">
+            <div class="code-window-bar">
+              <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
+              <span>example · local session</span>
+            </div>
+            <pre><span class="code-prompt">$</span> <span class="code-command">dhruv review src/</span>
+
+<span class="code-highlight">◈ Reviewing project context...</span>
+
+Code quality       <span class="code-highlight">86%</span>
+Findings           3 actionable suggestions
+Next step          Run dhruv optimize package.json
+
+<span class="code-prompt">✓ Local model ready</span>     gemma3:270m</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="shell section" id="get-started">
+        <div class="section-heading">
+          <div class="section-kicker">A three-step setup</div>
+          <h2>Be up and running in a minute.</h2>
+          <p>Bring your own local model, choose your preferences, and start asking better questions.</p>
+        </div>
+        <div class="guide-grid">
+          <article class="guide-card">
+            <span class="step">01</span>
+            <h3>Install the CLI</h3>
+            <p>Requires Node.js 18 or newer.</p>
+            <p><code>npm install -g @rahul05ranjan/dhruv-cli</code></p>
+          </article>
+          <article class="guide-card">
+            <span class="step">02</span>
+            <h3>Start Ollama</h3>
+            <p>Install Ollama, then pull a local model.</p>
+            <p><code>ollama pull gemma3:270m</code></p>
+          </article>
+          <article class="guide-card">
+            <span class="step">03</span>
+            <h3>Make it yours</h3>
+            <p>Use the setup wizard to choose your model, output, and theme.</p>
+            <p><code>dhruv init</code></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="shell section" id="explore">
+        <div class="closing">
+          <div>
+            <h2>Build a sharper loop.</h2>
+            <p>Read the API reference, add a plugin, or join the project on GitHub.</p>
+          </div>
+          <div class="actions" style="margin: 0">
+            <a class="button button-primary" href="./api/">Read the API ↗</a>
+            <a class="button button-secondary" href="https://github.com/rahul05ranjan/dhruv-cli/issues" target="_blank" rel="noreferrer">Join the conversation ↗</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <span>MIT © <span id="year">2026</span> Dhruv CLI</span>
+      <span><a href="https://www.npmjs.com/package/@rahul05ranjan/dhruv-cli" target="_blank" rel="noreferrer">npm</a> · <a href="https://github.com/rahul05ranjan/dhruv-cli" target="_blank" rel="noreferrer">GitHub</a> · <a href="./publishing-fix.md">Release notes</a></span>
+    </footer>
+
+    <script>
+      document.querySelectorAll("[data-copy]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const value = button.dataset.copy;
+          if (!value) return;
+          try {
+            await navigator.clipboard.writeText(value);
+            button.textContent = "Copied";
+            window.setTimeout(() => { button.textContent = "Copy"; }, 1400);
+          } catch {
+            button.textContent = "Select above";
+            window.setTimeout(() => { button.textContent = "Copy"; }, 1400);
+          }
+        });
       });
-    });
-    // Collapsible
-    const collapsibles = document.querySelectorAll('.collapsible');
-    collapsibles.forEach(btn => {
-      btn.addEventListener('click', function() {
-        this.classList.toggle('active');
-        const content = this.nextElementSibling;
-        content.classList.toggle('active');
-      });
-    });
-    // Sidebar nav scrollspy
-    const navLinks = document.querySelectorAll('.sidebar nav a');
-    const sections = [
-      document.getElementById('hero'),
-      document.getElementById('features'),
-      document.getElementById('installTab'),
-      document.getElementById('usageTab'),
-      document.getElementById('pluginsTab'),
-      document.getElementById('community')
-    ];
-    window.addEventListener('scroll', () => {
-      let idx = 0;
-      for (let i = 0; i < sections.length; i++) {
-        if (sections[i] && sections[i].getBoundingClientRect().top < 120) idx = i;
-      }
-      navLinks.forEach(l => l.classList.remove('active'));
-      if (navLinks[idx]) navLinks[idx].classList.add('active');
-    });
-    // Theme toggle
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const themeLabel = document.getElementById('themeLabel');
-    function setTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      if (theme === 'light') {
-        themeIcon.textContent = '☀️';
-        themeLabel.textContent = 'Light';
-      } else {
-        themeIcon.textContent = '🌙';
-        themeLabel.textContent = 'Dark';
-      }
-      localStorage.setItem('dhruv-theme', theme);
-    }
-    themeToggle.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') || 'dark';
-      setTheme(current === 'dark' ? 'light' : 'dark');
-    });
-    // Load theme
-    setTheme(localStorage.getItem('dhruv-theme') || 'dark');
-  </script>
-</body>
+
+      document.getElementById("year").textContent = String(new Date().getFullYear());
+    </script>
+  </body>
 </html>
