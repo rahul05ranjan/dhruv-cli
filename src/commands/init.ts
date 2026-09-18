@@ -28,6 +28,13 @@ export async function init() {
       },
       {
         type: 'list',
+        name: 'scope',
+        message: 'Where should Dhruv save these settings?',
+        choices: ['local', 'global'],
+        default: 'local',
+      },
+      {
+        type: 'list',
         name: 'responseFormat',
         message: 'Preferred response format?',
         choices: ['text', 'json', 'markdown'],
@@ -48,9 +55,11 @@ export async function init() {
       },
     ]);
 
-    saveConfig(answers);
-    console.log(chalk.green('Configuration saved!'));
+    const { scope, ...settings } = answers;
+    saveConfig(settings, { scope });
+    console.log(chalk.green(`Configuration saved ${scope === 'global' ? 'for your user account' : 'in this project'}!`));
   } catch (error) {
+    process.exitCode = 130;
     if ((error as { isTtyError?: boolean })?.isTtyError) {
       console.log(chalk.red('This command requires an interactive terminal.'));
     } else {

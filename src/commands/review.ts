@@ -1,10 +1,15 @@
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { printError } from '../utils/ux.js';
+import { detectProjectType } from '../utils/projectType.js';
 
-/** Reads a file or the code files of a directory (up to 10), concatenated. */
+const CODE_FILE = /\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/;
+const IGNORED_DIRECTORIES = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.dhruv-cache', 'logs']);
+
+/** Reads a file or up to 10 code files from a directory tree. */
 function readCode(fileOrDir: string): string | undefined {
   // Read first, branch on the error: no separate existence check to race against.
   let content: string;
@@ -22,10 +27,24 @@ function readCode(fileOrDir: string): string | undefined {
 }
 
 function readDirectory(dir: string): string | undefined {
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => f.match(/\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/))
-    .slice(0, 10);
+  const files: string[] = [];
+
+  function collect(current: string): void {
+    if (files.length >= 10) return;
+
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (files.length >= 10) return;
+      const absolute = path.join(current, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!IGNORED_DIRECTORIES.has(entry.name)) collect(absolute);
+      } else if (entry.isFile() && CODE_FILE.test(entry.name)) {
+        files.push(path.relative(dir, absolute).split(path.sep).join('/'));
+      }
+    }
+  }
+
+  collect(dir);
 
   if (files.length === 0) {
     printError(`No code files found in directory "${dir}".`);
@@ -43,16 +62,42 @@ function readDirectory(dir: string): string | undefined {
   return code;
 }
 
-export async function review(fileOrDir: string) {
-  const code = readCode(fileOrDir);
+function readGitDiff(fileOrDir: string): string | undefined {
+  const root = fs.existsSync(fileOrDir) && fs.statSync(fileOrDir).isDirectory() ? fileOrDir : path.dirname(fileOrDir);
+  try {
+    const diff = execFileSync('git', ['diff', '--no-ext-diff', '--unified=80', '--'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    if (!diff.trim()) {
+      printError(`No uncommitted changes found in "${fileOrDir}".`);
+      return undefined;
+    }
+    return diff;
+  } catch {
+    printError(`Could not read a git diff for "${fileOrDir}".`);
+    return undefined;
+  }
+}
+
+export interface ReviewOptions {
+  diff?: boolean;
+}
+
+export async function review(fileOrDir: string, options: ReviewOptions = {}) {
+  const code = options.diff ? readGitDiff(fileOrDir) : readCode(fileOrDir);
   if (code === undefined) return;
+  const projectRoot = fs.existsSync(fileOrDir) && fs.statSync(fileOrDir).isDirectory() ? fileOrDir : path.dirname(fileOrDir);
+  const projectType = detectProjectType(projectRoot);
+  const scope = options.diff ? 'the current uncommitted git diff' : 'the supplied source files';
 
   await runCommand({
     name: 'review',
     input: { fileOrDir },
     header: '🔍 Code Review: ',
     buildRequest: (input, model) => ({
-      prompt: `Please review this code and provide feedback on code quality, best practices, potential issues, and suggestions for improvement. Here is the code to review:\n\nCODE_START\n${code}\nCODE_END\n\nPlease provide your review in a structured format with clear categories and actionable feedback.`,
+      prompt: `Please review ${scope} for a ${projectType} project. Provide feedback on code quality, best practices, potential issues, and suggestions for improvement. For every finding, include the file, line or region, severity, explanation, and an actionable recommendation. Here is the code to review:\n\nCODE_START\n${code}\nCODE_END`,
       systemMessage: getSystemMessage('review'),
       model,
     }),

@@ -21,7 +21,9 @@ Thumbs.db
 .dhruv-cache/
 .devai-cache/
 .dhruv-config.json
+.dhruv-metrics.json
 .devai-config.json
+logs/.*-audit.json
 
 # Test output
 coverage/

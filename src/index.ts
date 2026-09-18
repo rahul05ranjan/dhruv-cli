@@ -20,6 +20,7 @@ import { createRequire } from 'module';
 import { logger, logCommand, logInfo, logError } from './core/logger.js';
 import { metricsCollector } from './core/metrics.js';
 import { securityManager } from './core/security.js';
+import { commandDescription, completionCommands, completionOptions } from './core/command-catalog.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
@@ -32,65 +33,73 @@ program
 
 program
   .command('explain <query>')
-  .description('Explain a concept or command')
+  .description(commandDescription('explain'))
   .addHelpText('after', '\nExamples:\n  $ dhruv explain "What is async/await?"\n  $ dhruv explain "Docker containers vs VMs"')
   .action(explain);
 
 program
   .command('suggest <query>')
-  .description('Get AI-powered suggestions')
+  .description(commandDescription('suggest'))
   .addHelpText('after', '\nExamples:\n  $ dhruv suggest "React performance optimization"\n  $ dhruv suggest "Node.js project structure"')
   .action(suggest);
 
 program
   .command('fix <query>')
-  .description('Get a fix for a coding issue or error')
+  .description(commandDescription('fix'))
   .addHelpText('after', '\nExamples:\n  $ dhruv fix "TypeError: Cannot read property of undefined"\n  $ dhruv fix "CORS error in Express.js"')
   .action(fix);
 
 program
   .command('review <fileOrDir>')
-  .description('Review code in a file or directory')
-  .action(review);
+  .description(commandDescription('review'))
+  .option('--diff', 'Review the current uncommitted git diff')
+  .action((fileOrDir: string, command: Command) => review(fileOrDir, command.opts()));
 
 program
   .command('optimize <file>')
-  .description('Optimize a file (e.g., package.json)')
+  .description(commandDescription('optimize'))
   .action(optimize);
 
 program
   .command('security-check [fileOrDir]')
-  .description('Run a security check on code')
-  .action(securityCheck);
+  .description(commandDescription('security-check'))
+  .option('--strict', 'Exit with failure when high-confidence findings are detected')
+  .action((fileOrDir: string | undefined, command: Command) => securityCheck(fileOrDir, command.opts()));
 
 program
   .command('generate <type> <target>')
-  .description('Generate code/tests for a file')
-  .action(generate);
+  .description(commandDescription('generate'))
+  .option('--apply', 'Write generated tests to disk (preview is the default)')
+  .option('--output <path>', 'Write generated tests to this path')
+  .option('--overwrite', 'Allow replacing an existing output file')
+  .action((type: string, target: string, command: Command) => generate(type, target, command.opts()));
 
 program
   .command('init')
-  .description('Interactive setup/configuration wizard')
+  .description(commandDescription('init'))
   .action(init);
 
 program
   .command('status')
-  .description('Check Ollama connection and available models')
+  .description(commandDescription('status'))
   .action(status);
 
 program
   .command('health')
-  .description('Run comprehensive health check')
-  .action(health);
+  .description(commandDescription('health'))
+  .option('--details', 'Show every health check and diagnostic detail')
+  .action((command: Command) => health(command.opts()));
 
 program
   .command('metrics')
-  .description('Display CLI usage metrics')
-  .action(metrics);
+  .description(commandDescription('metrics'))
+  .option('--raw', 'Export raw Prometheus metrics')
+  .option('--reset', 'Clear persisted local metrics')
+  .action((command: Command) => metrics(command.opts()));
 
 program
   .command('project-type')
-  .description('Detect and print the current project type')
+  .description(commandDescription('project-type'))
   .action(() => {
     const type = detectProjectType();
     console.log(chalk.blue(`Detected project type: ${type}`));
@@ -98,20 +107,22 @@ program
 
 program
   .command('menu')
-  .description('Interactive command palette')
+  .description(commandDescription('menu'))
   .action(menu);
 
 program
   .option('--model <model>', 'Set Ollama model')
   .option('--verbose', 'Enable verbose output')
   .option('--json', 'Output in JSON format')
+  .option('--timeout <milliseconds>', 'Set the AI request timeout')
   .hook('preAction', async (thisCommand) => {
     const opts = thisCommand.opts();
-    if (opts.model || opts.verbose || opts.json) {
+    if (opts.model || opts.verbose || opts.json || opts.timeout) {
       const config: Record<string, unknown> = {};
       if (opts.model) config.model = opts.model;
       if (opts.verbose) config.verbose = true;
       if (opts.json) config.responseFormat = 'json';
+      if (opts.timeout) config.timeoutMs = Number(opts.timeout);
       // Save config for session
       const configModule = await import('./config/config.js');
       configModule.saveConfig(config);
@@ -165,23 +176,33 @@ async function loadPlugins(program: unknown) {
 // Autocomplete: Generate shell completion scripts
 program
   .command('completion')
-  .description('Generate shell completion script')
+  .description(commandDescription('completion'))
   .argument('[shell]', 'shell type (bash|zsh|fish)', 'bash')
   .action((shell: string) => {
+    const commands = completionCommands();
+    const options = completionOptions();
     let script = '';
     switch (shell) {
       case 'zsh':
-        script = `#compdef dhruv\n_dhruv_completion() {\n  reply=( $(dhruv --help | awk '/Commands:/,/^$/ {if(NR>1)print $1}') )\n}\ncompctl -K _dhruv_completion dhruv`;
+        script = `#compdef dhruv\n_dhruv_completion() {\n  _arguments '1:command:(${commands})' '*:option:(${options})'\n}\ncompdef _dhruv_completion dhruv`;
         break;
       case 'fish':
-        script = `function __fish_dhruv_complete\n  dhruv --help | awk '/Commands:/,/^$/ {if(NR>1)print $1}'\nend\ncomplete -c dhruv -a '(__fish_dhruv_complete)'`;
+        script = `complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'\ncomplete -c dhruv -f -n 'not __fish_use_subcommand' -a '${options}'`;
         break;
-      default:
+      case 'bash':
         script = String.raw`#!/bin/bash
 _dhruv_completion() {
-  COMPREPLY=( $(compgen -W "$(dhruv --help | awk '/Commands:/,/^$/ {if(NR>1)print $1}')" -- \${COMP_WORDS[1]}) )
+  local commands="${commands}"
+  local options="${options}"
+  local choices="$commands $options"
+  COMPREPLY=( $(compgen -W "$choices" -- "\${COMP_WORDS[COMP_CWORD]}") )
 }
 complete -F _dhruv_completion dhruv`;
+        break;
+      default:
+        console.error(chalk.red(`Unsupported shell "${shell}". Choose bash, zsh, or fish.`));
+        process.exitCode = 2;
+        return;
     }
     console.log(script);
     console.log(`\n# To enable tab completion, add the above to your shell profile or source it directly.`);

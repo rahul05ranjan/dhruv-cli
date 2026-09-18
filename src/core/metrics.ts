@@ -1,5 +1,38 @@
 import promClient from 'prom-client';
 import { logger } from './logger.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+export interface CommandSummary {
+  runs: number;
+  successes: number;
+  failures: number;
+  durationMs: number;
+}
+
+export interface ModelSummary {
+  requests: number;
+  successes: number;
+  failures: number;
+  durationMs: number;
+}
+
+export interface CacheSummary {
+  hits: number;
+  misses: number;
+}
+
+export interface MetricsSummary {
+  sessions: number;
+  commands: Record<string, CommandSummary>;
+  errors: Record<string, number>;
+  models: Record<string, ModelSummary>;
+  cache: CacheSummary;
+}
+
+function emptySummary(): MetricsSummary {
+  return { sessions: 0, commands: {}, errors: {}, models: {}, cache: { hits: 0, misses: 0 } };
+}
 
 // Create a Registry which registers the metrics
 const register = new promClient.Registry();
@@ -122,6 +155,14 @@ export class MetricsCollector {
     try {
       metrics.commandDuration.observe({ command, success: success.toString() }, duration / 1000);
       metrics.commandCount.inc({ command, success: success.toString() });
+      this.updatePersistent((summary) => {
+        const current = summary.commands[command] ?? { runs: 0, successes: 0, failures: 0, durationMs: 0 };
+        current.runs += 1;
+        if (success) current.successes += 1;
+        else current.failures += 1;
+        current.durationMs += duration;
+        summary.commands[command] = current;
+      });
     } catch (error) {
       logger.error('Failed to record command metrics', error as Error);
     }
@@ -137,6 +178,14 @@ export class MetricsCollector {
       if (tokensUsed) {
         metrics.aiTokensUsed.inc({ model, command_type: commandType }, tokensUsed);
       }
+      this.updatePersistent((summary) => {
+        const current = summary.models[model] ?? { requests: 0, successes: 0, failures: 0, durationMs: 0 };
+        current.requests += 1;
+        if (success) current.successes += 1;
+        else current.failures += 1;
+        current.durationMs += duration;
+        summary.models[model] = current;
+      });
     } catch (error) {
       logger.error('Failed to record AI request metrics', error as Error);
     }
@@ -147,6 +196,9 @@ export class MetricsCollector {
 
     try {
       metrics.cacheHitCount.inc({ cache_type: cacheType });
+      this.updatePersistent((summary) => {
+        summary.cache.hits += 1;
+      });
     } catch (error) {
       logger.error('Failed to record cache hit metrics', error as Error);
     }
@@ -157,6 +209,9 @@ export class MetricsCollector {
 
     try {
       metrics.cacheMissCount.inc({ cache_type: cacheType });
+      this.updatePersistent((summary) => {
+        summary.cache.misses += 1;
+      });
     } catch (error) {
       logger.error('Failed to record cache miss metrics', error as Error);
     }
@@ -177,6 +232,10 @@ export class MetricsCollector {
 
     try {
       metrics.errorCount.inc({ error_type: errorType, command: command || 'unknown' });
+      this.updatePersistent((summary) => {
+        const key = command ? `${errorType}:${command}` : errorType;
+        summary.errors[key] = (summary.errors[key] ?? 0) + 1;
+      });
     } catch (error) {
       logger.error('Failed to record error metrics', error as Error);
     }
@@ -201,6 +260,9 @@ export class MetricsCollector {
 
     try {
       metrics.sessionCount.inc();
+      this.updatePersistent((summary) => {
+        summary.sessions += 1;
+      });
     } catch (error) {
       logger.error('Failed to record session metrics', error as Error);
     }
@@ -213,6 +275,47 @@ export class MetricsCollector {
       metrics.pluginLoadedCount.inc();
     } catch (error) {
       logger.error('Failed to record plugin loaded metrics', error as Error);
+    }
+  }
+
+  public getSummary(): MetricsSummary {
+    return this.readPersistent();
+  }
+
+  public resetPersistent(): void {
+    try {
+      fs.unlinkSync(this.persistentPath());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+
+  private persistentPath(): string {
+    return path.join(process.cwd(), '.dhruv-metrics.json');
+  }
+
+  private readPersistent(): MetricsSummary {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(this.persistentPath(), 'utf8')) as Partial<MetricsSummary>;
+      return {
+        sessions: typeof parsed.sessions === 'number' ? parsed.sessions : 0,
+        commands: parsed.commands ?? {},
+        errors: parsed.errors ?? {},
+        models: parsed.models ?? {},
+        cache: parsed.cache ?? { hits: 0, misses: 0 },
+      };
+    } catch {
+      return emptySummary();
+    }
+  }
+
+  private updatePersistent(update: (summary: MetricsSummary) => void): void {
+    try {
+      const summary = this.readPersistent();
+      update(summary);
+      fs.writeFileSync(this.persistentPath(), JSON.stringify(summary, null, 2));
+    } catch (error) {
+      logger.debug('Failed to persist metrics', { error: (error as Error).message });
     }
   }
 

@@ -8,41 +8,49 @@ import { optimize } from './optimize.js';
 import { securityCheck } from './security-check.js';
 import { generate } from './generate.js';
 import { init } from './init.js';
+import { status } from './status.js';
+import { health } from './health.js';
+import { metrics } from './metrics.js';
 import { detectProjectType } from '../utils/projectType.js';
 import chalk from 'chalk';
+import { commandCatalog } from '../core/command-catalog.js';
 
 const commands = [
-  { name: 'Explain', value: 'explain' },
-  { name: 'Suggest', value: 'suggest' },
-  { name: 'Fix', value: 'fix' },
-  { name: 'Review', value: 'review' },
-  { name: 'Optimize', value: 'optimize' },
-  { name: 'Security Check', value: 'security-check' },
-  { name: 'Generate', value: 'generate' },
-  { name: 'Init (Setup)', value: 'init' },
-  { name: 'Project Type', value: 'project-type' },
-  { name: 'Exit', value: 'exit' }
+  ...commandCatalog.map(({ menuLabel, name }) => ({ name: menuLabel, value: name })),
+  { name: 'Exit', value: 'exit' },
 ];
 
 export async function menu() {
-  let running = true;
-  while (running) {
-    const { cmd } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'cmd',
-        message: themed('What do you want to do?', 'primary'),
-        choices: commands
-      }
-    ]);
+  try {
+    let running = true;
+    while (running) {
+      const { filter = '' } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'filter',
+          message: 'Filter commands (press enter to show all):',
+        },
+      ]);
+      const normalizedFilter = String(filter).trim().toLowerCase();
+      const filteredCommands = normalizedFilter
+        ? commands.filter((command) => command.name.toLowerCase().includes(normalizedFilter) || command.value.includes(normalizedFilter))
+        : commands;
+      const { cmd } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'cmd',
+          message: themed('What do you want to do?', 'primary'),
+          choices: filteredCommands.length > 0 ? filteredCommands : [{ name: 'No matching commands — Exit', value: 'exit' }],
+        }
+      ]);
     
-    if (cmd === 'exit') {
-      running = false;
-      break;
-    }
+      if (cmd === 'exit') {
+        running = false;
+        break;
+      }
 
-    try {
-      switch (cmd) {
+      try {
+        switch (cmd) {
         case 'explain': {
           const { query } = await inquirer.prompt([
             { type: 'input', name: 'query', message: 'What would you like me to explain?' }
@@ -107,13 +115,31 @@ export async function menu() {
           console.log(chalk.blue(`Detected project type: ${type}`));
           break;
         }
+        case 'status':
+          await status();
+          break;
+        case 'health':
+          await health();
+          break;
+        case 'metrics':
+          await metrics();
+          break;
+        case 'completion':
+          console.log(themed('Run `dhruv completion <bash|zsh|fish>` to install shell completion.', 'accent'));
+          break;
         default:
           console.log(themed(`You selected: ${cmd}`, 'accent'));
+        }
+      } catch (error) {
+        console.error(chalk.red(`Error executing ${cmd}: ${(error as Error).message}`));
       }
-    } catch (error) {
-      console.error(chalk.red(`Error executing ${cmd}: ${(error as Error).message}`));
-    }
 
-    console.log(''); // Add spacing between commands
+      console.log(''); // Add spacing between commands
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cancelled = /cancel|force closed|exitprompt/i.test(message);
+    process.exitCode = cancelled ? 130 : 1;
+    console.error(chalk.red(cancelled ? 'Interactive menu cancelled.' : `Interactive menu failed: ${message}`));
   }
 }
