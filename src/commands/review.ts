@@ -3,11 +3,25 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
-import { printError } from '../utils/ux.js';
+import { printError, printInfo } from '../utils/ux.js';
 import { detectProjectType } from '../utils/projectType.js';
 
 const CODE_FILE = /\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/;
-const IGNORED_DIRECTORIES = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.dhruv-cache', 'logs']);
+const IGNORED_DIRECTORIES = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  'coverage',
+  '.dhruv-cache',
+  'logs',
+  '.next',
+  '.turbo',
+  '__pycache__',
+  '.pytest_cache',
+  'target',
+  'vendor',
+]);
 
 /** Reads a file or up to 10 code files from a directory tree. */
 function readCode(fileOrDir: string): string | undefined {
@@ -49,6 +63,10 @@ function readDirectory(dir: string): string | undefined {
   if (files.length === 0) {
     printError(`No code files found in directory "${dir}".`);
     return undefined;
+  }
+
+  if (files.length >= 10) {
+    printInfo('Note: Directory review is capped at the first 10 source files.');
   }
 
   let code = '';
