@@ -1,0 +1,104 @@
+import { describe, expect, it } from '@jest/globals';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { resolve } from 'node:path';
+
+const execFileAsync = promisify(execFile);
+const repoRoot = resolve(__dirname, '..');
+// Package/relative specifiers so Windows does not pass `D:\...` into the ESM loader.
+const sourceEntry = './src/index.ts';
+const loaderEntry = 'ts-node/esm';
+
+describe('CLI output contract', () => {
+  it('keeps shell completion stdout free of startup telemetry', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'completion', 'bash'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toMatch(/^#!\/bin\/bash/);
+    expect(result.stdout).not.toContain('Dhruv CLI starting');
+    expect(result.stdout).not.toContain('\u001b[');
+  });
+
+  it('includes diagnostic commands and shared options in completion scripts', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'completion', 'bash'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toContain('status');
+    expect(result.stdout).toContain('--json');
+  });
+
+  it('rejects unsupported completion shells', async () => {
+    await expect(execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'completion', 'powershell'],
+      { cwd: repoRoot, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
+    )).rejects.toMatchObject({ code: 2 });
+  });
+
+  it('documents strict security checks in command help', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'security-check', '--help'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toContain('--strict');
+  });
+
+  it('documents safe generation controls in command help', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'generate', '--help'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toContain('--apply');
+    expect(result.stdout).toContain('--output');
+    expect(result.stdout).toContain('--overwrite');
+  });
+
+  it('documents explicit metrics export and reset controls', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'metrics', '--help'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toContain('--raw');
+    expect(result.stdout).toContain('--reset');
+  });
+
+  it('documents detailed health diagnostics as an explicit option', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'health', '--help'],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+      },
+    );
+
+    expect(result.stdout).toContain('--details');
+  });
+});

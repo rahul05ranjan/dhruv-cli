@@ -61,6 +61,7 @@ class Logger {
       // Console transport for development
       new winston.transports.Console({
         level: config.verbose ? 'debug' : 'info',
+        stderrLevels: ['error', 'warn', 'info', 'debug'],
         format: winston.format.combine(
           winston.format.colorize(),
           winston.format.simple(),

@@ -3,13 +3,49 @@ import chalk from 'chalk';
 import { printSuccess, printError, printInfo } from '../utils/ux.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../core/logger.js';
+import { loadConfig } from '../config/config.js';
 
-export async function metrics(): Promise<void> {
-  console.log(chalk.blue.bold('📊 Dhruv CLI Metrics\n'));
+export interface MetricsOptions {
+  raw?: boolean;
+  reset?: boolean;
+}
 
+export async function metrics(options: MetricsOptions = {}): Promise<void> {
   try {
+    if (options.reset) {
+      metricsCollector.resetPersistent();
+      if (loadConfig().responseFormat === 'json') {
+        process.stdout.write(`${JSON.stringify({ ok: true, command: 'metrics', reset: true, summary: metricsCollector.getSummary() })}\n`);
+      } else {
+        printSuccess('Local metrics reset.');
+      }
+      return;
+    }
+
     // Get metrics data
     const metricsData = await metricsCollector.getMetricsJSON();
+    const summary = metricsCollector.getSummary();
+
+    if (loadConfig().responseFormat === 'json') {
+      process.stdout.write(`${JSON.stringify({
+        ok: true,
+        command: 'metrics',
+        summary,
+        metrics: metricsData,
+      })}\n`);
+      return;
+    }
+
+    console.log(chalk.blue.bold('📊 Dhruv CLI Metrics\n'));
+    console.log(chalk.cyan('📌 Local summary:'));
+    console.log(`  Sessions: ${chalk.green(summary.sessions)}`);
+    Object.entries(summary.commands).forEach(([command, data]) => {
+      console.log(`  ${chalk.yellow(command)}: ${data.runs} runs, ${data.successes} succeeded, ${data.failures} failed, ${data.durationMs}ms`);
+    });
+    Object.entries(summary.models).forEach(([model, data]) => {
+      console.log(`  ${chalk.yellow(model)}: ${data.requests} requests, ${data.successes} succeeded, ${data.failures} failed, ${data.durationMs}ms`);
+    });
+    console.log(`  Cache: ${chalk.green(summary.cache.hits)} hits, ${chalk.yellow(summary.cache.misses)} misses`);
 
     if (metricsData.length === 0) {
       printInfo('No metrics data available yet. Metrics are collected during CLI usage.');
@@ -49,11 +85,10 @@ export async function metrics(): Promise<void> {
       }
     });
 
-    // Display raw Prometheus metrics
-    console.log(chalk.cyan('\n📋 Raw Prometheus Metrics:'));
-    console.log(chalk.gray('─'.repeat(50)));
-    const rawMetrics = await metricsCollector.getMetrics();
-    console.log(rawMetrics);
+    if (options.raw) {
+      const rawMetrics = await metricsCollector.getMetrics();
+      process.stdout.write(rawMetrics);
+    }
 
     logger.info('Metrics displayed successfully', { metricsCount: metricsData.length });
 

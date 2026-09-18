@@ -15,12 +15,15 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { loadConfig } from '../config/config.js';
+import { metricsCollector } from './metrics.js';
 
 /** Typed errors: the runner maps these to user-facing hints, never by string matching. */
 export type AIError =
   | { kind: 'connection'; cause: string }
   | { kind: 'model-not-found'; model: string }
   | { kind: 'empty-response'; model: string }
+  | { kind: 'timeout'; timeoutMs: number }
+  | { kind: 'cancelled' }
   | { kind: 'request'; cause: string };
 
 export interface AIRequest {
@@ -29,6 +32,7 @@ export interface AIRequest {
   context?: string;
   model?: string;
   onToken?: (token: string) => void;
+  signal?: AbortSignal;
 }
 
 /** The seam. Both adapters implement this; commands and tests depend on it, never on Ollama. */
@@ -110,9 +114,8 @@ function toAIError(err: unknown, model: string): AIError {
   if (message.includes('ECONNREFUSED') || message.includes('fetch failed') || message.includes('ENOTFOUND')) {
     return { kind: 'connection', cause: message };
   }
-  if (message.includes('not found')) {
-    return { kind: 'model-not-found', model };
-  }
+  if (message.includes('returned empty response')) return { kind: 'empty-response', model };
+  if (message.includes('not found')) return { kind: 'model-not-found', model };
   return { kind: 'request', cause: message };
 }
 
@@ -136,9 +139,11 @@ export class OllamaAIClient implements AIClient {
 
     const cached = readCache(request, model);
     if (cached !== undefined) {
+      metricsCollector.recordCacheHit('ai-response');
       if (request.onToken) request.onToken(cached);
       return cached;
     }
+    metricsCollector.recordCacheMiss('ai-response');
 
     try {
       const streaming = Boolean(request.onToken);
@@ -146,11 +151,17 @@ export class OllamaAIClient implements AIClient {
 
       if (streaming) {
         const stream = await this.client.generate({ model, prompt: fullPrompt, stream: true });
-        for await (const chunk of stream) {
-          const token = typeof chunk === 'object' && chunk !== null && 'response' in chunk ? chunk.response : '';
-          if (!token) continue;
-          result += token;
-          if (request.onToken) request.onToken(token);
+        const abort = () => stream.abort();
+        request.signal?.addEventListener('abort', abort, { once: true });
+        try {
+          for await (const chunk of stream) {
+            const token = typeof chunk === 'object' && chunk !== null && 'response' in chunk ? chunk.response : '';
+            if (!token) continue;
+            result += token;
+            if (request.onToken) request.onToken(token);
+          }
+        } finally {
+          request.signal?.removeEventListener('abort', abort);
         }
       } else {
         const response = await this.client.generate({ model, prompt: fullPrompt, stream: false });
@@ -244,6 +255,23 @@ export async function ask(request: AIRequest): Promise<string> {
 
 export async function listModels(): Promise<string[]> {
   return getAIClient().listModels();
+}
+
+export interface OllamaStatus {
+  endpoint: string;
+  version?: string;
+}
+
+export async function getOllamaStatus(): Promise<OllamaStatus> {
+  const endpoint = (process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434').replace(/\/$/, '');
+  try {
+    const response = await fetch(`${endpoint}/api/version`, { signal: AbortSignal.timeout(1000) });
+    if (!response.ok) return { endpoint };
+    const body = await response.json() as { version?: unknown };
+    return { endpoint, version: typeof body.version === 'string' ? body.version : undefined };
+  } catch {
+    return { endpoint };
+  }
 }
 
 /** Default model, from configuration — one source of truth. */

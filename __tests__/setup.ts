@@ -26,6 +26,7 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
 
 afterEach(() => {
   mockExit.mockClear();
+  process.exitCode = undefined;
 });
 
 // Global test utilities

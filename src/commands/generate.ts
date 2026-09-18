@@ -1,7 +1,9 @@
 import fs from 'fs';
+import path from 'path';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
-import { printError, printSuccess } from '../utils/ux.js';
+import { printError, printSuccess, printInfo } from '../utils/ux.js';
+import { loadConfig } from '../config/config.js';
 
 function buildPrompt(type: string, content: string): string {
   if (type === 'tests' || type === 'test') {
@@ -23,7 +25,13 @@ function extractTestCode(response: string): string {
     .trim();
 }
 
-export async function generate(type: string, target: string) {
+export interface GenerateOptions {
+  apply?: boolean;
+  output?: string;
+  overwrite?: boolean;
+}
+
+export async function generate(type: string, target: string, options: GenerateOptions = {}) {
   if (!fs.existsSync(target)) {
     printError(`Target file "${target}" does not exist.`);
     return;
@@ -47,9 +55,20 @@ export async function generate(type: string, target: string) {
         printError('No valid test code generated.');
         return;
       }
-      const testFile = target.replace(/\.[^.]+$/, '.test.js');
+      const extension = path.extname(target) || '.js';
+      const testFile = options.output ?? target.replace(/\.[^.]+$/, `.test${extension}`);
+      if (!options.apply && !options.output) {
+        if (loadConfig().responseFormat !== 'json') {
+          printInfo(`Preview only. Use --apply to write ${testFile}, or --output <path> to choose a destination.`);
+        }
+        return;
+      }
+      if (fs.existsSync(testFile) && !options.overwrite) {
+        printError(`Test file "${testFile}" already exists. Use --overwrite to replace it.`);
+        return;
+      }
       fs.writeFileSync(testFile, codeToSave);
-      printSuccess(`Test file saved: ${testFile}`);
+      if (loadConfig().responseFormat !== 'json') printSuccess(`Test file saved: ${testFile}`);
     },
     footer: `🔍 Want a review? Try: dhruv review ${target}`,
   });

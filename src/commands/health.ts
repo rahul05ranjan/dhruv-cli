@@ -28,20 +28,26 @@ interface SystemInfo {
   cpuCount: number;
 }
 
-export async function health(): Promise<void> {
-  console.log(chalk.blue.bold('🔍 Dhruv CLI Health Check\n'));
+export interface HealthOptions {
+  details?: boolean;
+}
 
+export async function health(options: HealthOptions = {}): Promise<void> {
+  const jsonOutput = loadConfig().responseFormat === 'json';
   const results: HealthCheckResult[] = [];
   const startTime = Date.now();
 
   try {
     // System Information
     const systemInfo = getSystemInfo();
-    console.log(chalk.cyan('📊 System Information:'));
-    Object.entries(systemInfo).forEach(([key, value]) => {
-      console.log(`  ${key}: ${chalk.yellow(value)}`);
-    });
-    console.log();
+    if (!jsonOutput) {
+      console.log(chalk.blue.bold('🔍 Dhruv CLI Health Check\n'));
+      console.log(chalk.cyan('📊 System Information:'));
+      Object.entries(systemInfo).forEach(([key, value]) => {
+        console.log(`  ${key}: ${chalk.yellow(value)}`);
+      });
+      console.log();
+    }
 
     // Configuration Check
     results.push(...await checkConfiguration());
@@ -64,15 +70,37 @@ export async function health(): Promise<void> {
     // Plugin System Check
     results.push(...await checkPlugins());
 
-    // Display Results
-    displayResults(results);
-
     const duration = Date.now() - startTime;
+    const summary = summarizeResults(results);
+    if (jsonOutput) {
+      process.exitCode = summary.fail > 0 ? 1 : 0;
+      process.stdout.write(`${JSON.stringify({
+        ok: summary.fail === 0,
+        command: 'health',
+        system: systemInfo,
+        results,
+        summary,
+        durationMs: duration,
+      })}\n`);
+    } else {
+      if (options.details) displayResults(results);
+      else displayConciseResults(results);
+    }
+
     logger.info('Health check completed', { duration, results: results.length });
 
   } catch (error) {
-    printError('Health check failed');
-    console.error(chalk.red((error as Error).message));
+    process.exitCode = 1;
+    if (jsonOutput) {
+      process.stdout.write(`${JSON.stringify({
+        ok: false,
+        command: 'health',
+        error: (error as Error).message,
+      })}\n`);
+    } else {
+      printError('Health check failed');
+      console.error(chalk.red((error as Error).message));
+    }
     logger.error('Health check failed', error as Error);
   }
 }
@@ -421,11 +449,7 @@ function displayResults(results: HealthCheckResult[]): void {
   });
 
   // Summary
-  const summary = {
-    pass: results.filter(r => r.status === 'pass').length,
-    warn: results.filter(r => r.status === 'warn').length,
-    fail: results.filter(r => r.status === 'fail').length
-  };
+  const summary = summarizeResults(results);
 
   console.log(chalk.blue.bold('\n📊 Summary:'));
   console.log(`  ✅ Passed: ${chalk.green(summary.pass)}`);
@@ -437,4 +461,25 @@ function displayResults(results: HealthCheckResult[]): void {
   const statusColor = overallStatus === 'pass' ? chalk.green : overallStatus === 'warn' ? chalk.yellow : chalk.red;
 
   console.log(`\n${statusIcon} ${statusColor('Overall Status: ' + overallStatus.toUpperCase())}`);
+}
+
+function displayConciseResults(results: HealthCheckResult[]): void {
+  const summary = summarizeResults(results);
+  const overallStatus = summary.fail > 0 ? 'fail' : summary.warn > 0 ? 'warn' : 'pass';
+  const icon = overallStatus === 'pass' ? '✅' : overallStatus === 'warn' ? '⚠️' : '❌';
+
+  console.log(chalk.blue.bold(`\n${icon} Health: ${overallStatus.toUpperCase()}`));
+  console.log(`  ${chalk.green(`${summary.pass} passed`)}, ${chalk.yellow(`${summary.warn} warnings`)}, ${chalk.red(`${summary.fail} failed`)}`);
+  results
+    .filter((result) => result.status !== 'pass')
+    .forEach((result) => console.log(`  ${result.category}: ${result.message}${result.recommendation ? ` — ${result.recommendation}` : ''}`));
+  console.log(chalk.dim('Run `dhruv health --details` for full diagnostics.'));
+}
+
+function summarizeResults(results: HealthCheckResult[]) {
+  return {
+    pass: results.filter(r => r.status === 'pass').length,
+    warn: results.filter(r => r.status === 'warn').length,
+    fail: results.filter(r => r.status === 'fail').length,
+  };
 }

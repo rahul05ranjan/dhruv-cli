@@ -78,13 +78,13 @@ Dhruv requires Node.js 18 or newer. The default model is `gemma3:270m`; choose a
 | `dhruv suggest <query>` | Generate practical suggestions for a development task |
 | `dhruv explain <query>` | Explain a concept, command, or unfamiliar error |
 | `dhruv fix <query>` | Analyze a coding issue and propose a fix |
-| `dhruv review <file-or-dir>` | Review up to ten code files for quality and maintainability |
+| `dhruv review <file-or-dir>` | Review up to ten code files for quality and maintainability; add `--diff` for uncommitted changes |
 | `dhruv optimize <file>` | Find actionable improvements for source or configuration files |
-| `dhruv security-check [file-or-dir]` | Run a local security analysis |
-| `dhruv generate <type> <target>` | Generate tests, documentation, or other code |
+| `dhruv security-check [file-or-dir]` | Run a redacted local security analysis; add `--strict` for CI failure on high-confidence findings |
+| `dhruv generate <type> <target>` | Preview generated tests by default; use `--apply`, `--output`, or `--overwrite` to write safely |
 | `dhruv status` | Check Ollama connectivity and configured models |
-| `dhruv health` | Run a comprehensive environment health check |
-| `dhruv metrics` | Inspect local usage and performance metrics |
+| `dhruv health` | Show a concise health summary; use `--details` for diagnostics |
+| `dhruv metrics` | Inspect local usage and performance metrics; use `--raw` or `--reset` explicitly |
 | `dhruv project-type` | Detect the current project type |
 | `dhruv menu` | Open the interactive command palette |
 | `dhruv completion [shell]` | Generate Bash, Zsh, or Fish completion |
@@ -98,23 +98,27 @@ dhruv suggest "deploy a React app to Vercel"
 
 # Improve an existing project
 dhruv review src/
+dhruv review --diff .
 dhruv optimize package.json
 dhruv security-check src/
+dhruv security-check src/ --strict
 
 # Generate and automate
-dhruv generate tests src/utils/helpers.js
+dhruv generate tests src/utils/helpers.js       # preview only
+dhruv generate tests src/utils/helpers.js --apply
 dhruv completion zsh > ~/.zsh/completions/_dhruv
 ```
 
 ## Configuration that stays out of your way
 
-Run `dhruv init` to set the Ollama model, response format, verbosity, and terminal theme. Configuration is stored in `.dhruv-config.json` in the current project directory.
+Run `dhruv init` to set the Ollama model, response format, verbosity, terminal theme, and whether settings are project-local or user-global. Local configuration is stored in `.dhruv-config.json`; global settings live under your user config directory.
 
 For one-off runs, use global flags:
 
 ```bash
 dhruv suggest "summarize this migration" --model llama3.2 --json
 dhruv review src/ --verbose
+dhruv explain "what changed?" --timeout 60000
 ```
 
 ## Extend it with plugins

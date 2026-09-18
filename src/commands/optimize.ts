@@ -39,7 +39,7 @@ export async function optimize(file: string) {
     input: { file },
     header: `⚡ Optimization suggestions for ${type}: `,
     buildRequest: (input, model) => ({
-      prompt: `Please analyze and provide optimization suggestions for this ${type}:\n\n${content}\n\nPlease provide:\n1. Specific optimization recommendations\n2. Performance improvements\n3. Best practices to implement\n4. Code examples of improvements\n5. Potential issues to fix\n\nFocus on actionable, practical improvements.`,
+      prompt: `Please analyze and provide optimization suggestions for this ${type}. For every recommendation, explain the expected impact, how to measure it, and the trade-offs or risks before applying it.\n\n${content}\n\nPlease provide:\n1. Specific optimization recommendations\n2. Performance improvements\n3. Best practices to implement\n4. Code examples of improvements\n5. Potential issues to fix\n\nFocus on actionable, practical improvements.`,
       systemMessage: getSystemMessage('optimize'),
       model,
     }),

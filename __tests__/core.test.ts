@@ -185,6 +185,30 @@ describe('Dhruv CLI Core Systems', () => {
 
       mockExistsSync.mockRestore();
     });
+
+    it('should detect a TypeScript Node project', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'package.json');
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      mockReadFileSync.mockReturnValue(JSON.stringify({ devDependencies: { typescript: '^5.0.0' } }));
+
+      expect(detectProjectType()).toBe('node-typescript');
+
+      mockExistsSync.mockRestore();
+      mockReadFileSync.mockRestore();
+    });
+
+    it('should return unknown instead of throwing for malformed package metadata', () => {
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockImplementation((filePath: fs.PathLike) => path.basename(filePath.toString()) === 'package.json');
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      mockReadFileSync.mockReturnValue('{ malformed');
+
+      expect(detectProjectType()).toBe('unknown');
+
+      mockExistsSync.mockRestore();
+      mockReadFileSync.mockRestore();
+    });
   });
 
   describe('System Message Templates', () => {
@@ -287,6 +311,41 @@ describe('Dhruv CLI Core Systems', () => {
       expect(completed).toBe('the answer');
     });
 
+    it('shows the AI response to the user', async () => {
+      const output: string[] = [];
+      const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+        output.push(String(chunk));
+        return true;
+      });
+
+      await runCommand(makeSpec());
+
+      expect(output.join('')).toContain('the answer');
+      write.mockRestore();
+    });
+
+    it('emits one structured result in JSON mode', async () => {
+      saveConfig({ responseFormat: 'json' });
+      const output: string[] = [];
+      const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+        output.push(String(chunk));
+        return true;
+      });
+
+      try {
+        await runCommand(makeSpec());
+        const result = JSON.parse(output.join('')) as Record<string, unknown>;
+        expect(result).toMatchObject({
+          ok: true,
+          command: 'explain',
+          response: 'the answer',
+        });
+      } finally {
+        write.mockRestore();
+        saveConfig({ responseFormat: 'text' });
+      }
+    });
+
     it('short-circuits on validation failure before the AI call', async () => {
       const computationsBefore = client.computations;
       await runCommand(makeSpec({ input: { query: '<script>alert(1)</script>' } }));
@@ -305,6 +364,68 @@ describe('Dhruv CLI Core Systems', () => {
       await runCommand(makeSpec());
       const { printError } = await import('../src/utils/ux');
       expect(jest.mocked(printError).mock.calls.length).toBeGreaterThan(0);
+    });
+
+    it('marks the process unsuccessful when an AI command fails', async () => {
+      const originalExitCode = process.exitCode;
+      process.exitCode = undefined;
+      client.failures.set('happy', { kind: 'connection', cause: 'ECONNREFUSED' });
+
+      try {
+        await runCommand(makeSpec());
+        expect(process.exitCode).toBe(1);
+      } finally {
+        process.exitCode = originalExitCode;
+      }
+    });
+
+    it('treats an empty AI response as a failed command', async () => {
+      setAIClient(new InMemoryAIClient(new Map([['happy', '']])));
+      process.exitCode = undefined;
+
+      try {
+        await runCommand(makeSpec());
+        expect(process.exitCode).toBe(1);
+      } finally {
+        process.exitCode = undefined;
+      }
+    });
+
+    it('times out a long-running AI request with a failing exit code', async () => {
+      saveConfig({ timeoutMs: 5 });
+      setAIClient({
+        ask: () => new Promise<string>(() => {}),
+        listModels: async () => [],
+      });
+      process.exitCode = undefined;
+
+      try {
+        await runCommand(makeSpec());
+        expect(process.exitCode).toBe(1);
+      } finally {
+        saveConfig({ timeoutMs: 45000 });
+        process.exitCode = undefined;
+      }
+    });
+
+    it('cancels an in-flight request on Ctrl-C', async () => {
+      saveConfig({ timeoutMs: 1000 });
+      setAIClient({
+        ask: () => new Promise<string>(() => {}),
+        listModels: async () => [],
+      });
+      process.exitCode = undefined;
+
+      try {
+        const running = runCommand(makeSpec());
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        process.emit('SIGINT');
+        await running;
+        expect(process.exitCode).toBe(130);
+      } finally {
+        saveConfig({ timeoutMs: 45000 });
+        process.exitCode = undefined;
+      }
     });
   });
 

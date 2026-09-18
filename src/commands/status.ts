@@ -1,12 +1,47 @@
 import chalk from 'chalk';
 import { loadConfig } from '../config/config.js';
 import { printSuccess, printError, printInfo } from '../utils/ux.js';
-import { listModels } from '../core/ai.js';
+import { getOllamaStatus, listModels } from '../core/ai.js';
 
 export async function status() {
-  console.log(chalk.blue('🔍 Dhruv CLI Status Check\n'));
-
   const config = loadConfig();
+  if (config.responseFormat === 'json') {
+    try {
+      const models = await listModels();
+      const server = await getOllamaStatus();
+      const configuredModelAvailable = models.includes(config.model);
+      process.stdout.write(`${JSON.stringify({
+        ok: configuredModelAvailable,
+        command: 'status',
+        model: config.model,
+        responseFormat: config.responseFormat,
+        verbose: config.verbose,
+        theme: config.theme,
+        availableModels: models,
+        configuredModelAvailable,
+        endpoint: server.endpoint,
+        version: server.version ?? null,
+        ollama: 'connected',
+        nextSteps: configuredModelAvailable ? [] : [`ollama pull ${config.model}`],
+      })}\n`);
+      if (!configuredModelAvailable) process.exitCode = 1;
+    } catch (error) {
+      process.exitCode = 1;
+      process.stdout.write(`${JSON.stringify({
+        ok: false,
+        command: 'status',
+        model: config.model,
+        ollama: 'unavailable',
+        error: (error as Error).message,
+      })}\n`);
+    }
+    return;
+  }
+
+  console.log(chalk.blue('🔍 Dhruv CLI Status Check\n'));
+  const server = await getOllamaStatus();
+  printInfo(`Ollama endpoint: ${server.endpoint}`);
+  printInfo(`Ollama version: ${server.version ?? 'unavailable'}\n`);
   printInfo(`Current configuration:`);
   console.log(`  Model: ${config.model}`);
   console.log(`  Response Format: ${config.responseFormat}`);
@@ -33,6 +68,7 @@ export async function status() {
     if (models.includes(config.model)) {
       printSuccess(`✓ Configured model '${config.model}' is available`);
     } else {
+      process.exitCode = 1;
       printError(`✗ Configured model '${config.model}' is not available`);
       if (models.length > 0) {
         console.log(chalk.yellow(`Available models: ${models.join(', ')}`));
