@@ -5,7 +5,13 @@ import {
   setAIClient,
   InMemoryAIClient,
 } from '../src/core/ai';
-import { loadConfig, saveConfig } from '../src/config/config';
+import {
+  loadConfig,
+  saveConfig,
+  setSessionConfig,
+  resetSessionConfig,
+  getSessionConfig,
+} from '../src/config/config';
 import { createSpinner } from '../src/utils/ux';
 import { detectProjectType, detectProjectDetails } from '../src/utils/projectType';
 import { getSystemMessage } from '../src/core/prompts';
@@ -133,6 +139,58 @@ describe('Dhruv CLI Core Systems', () => {
       if (fs.existsSync(configPath)) {
         fs.unlinkSync(configPath);
       }
+    });
+
+    it('should apply in-memory session overrides without writing to disk', () => {
+      resetSessionConfig();
+      const configPath = path.join(process.cwd(), '.dhruv-config.json');
+      const existedBefore = fs.existsSync(configPath);
+
+      setSessionConfig({
+        model: 'session-model',
+        responseFormat: 'json',
+        verbose: true,
+        timeoutMs: 12345,
+      });
+
+      expect(getSessionConfig()).toEqual({
+        model: 'session-model',
+        responseFormat: 'json',
+        verbose: true,
+        timeoutMs: 12345,
+      });
+
+      const loaded = loadConfig();
+      expect(loaded.model).toBe('session-model');
+      expect(loaded.responseFormat).toBe('json');
+      expect(loaded.verbose).toBe(true);
+      expect(loaded.timeoutMs).toBe(12345);
+
+      if (!existedBefore) {
+        expect(fs.existsSync(configPath)).toBe(false);
+      }
+
+      resetSessionConfig();
+      expect(getSessionConfig()).toEqual({});
+      const afterReset = loadConfig();
+      expect(afterReset.model).not.toBe('session-model');
+    });
+
+    it('should not persist session overrides when saving configuration', () => {
+      resetSessionConfig();
+      const configPath = path.join(process.cwd(), '.dhruv-config.json');
+      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+
+      setSessionConfig({ responseFormat: 'json' });
+      saveConfig({ model: 'persistent-model' });
+
+      const fileContent = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(fileContent.model).toBe('persistent-model');
+      // Must not snapshot the in-memory responseFormat into the saved file
+      expect(fileContent.responseFormat).not.toBe('json');
+
+      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+      resetSessionConfig();
     });
   });
 

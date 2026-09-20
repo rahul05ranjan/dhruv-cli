@@ -23,6 +23,20 @@ const defaultConfig: DhruvConfig = {
   theme: 'default',
 };
 
+let sessionConfig: Partial<DhruvConfig> = {};
+
+export function setSessionConfig(config: Partial<DhruvConfig>): void {
+  sessionConfig = { ...sessionConfig, ...config };
+}
+
+export function resetSessionConfig(): void {
+  sessionConfig = {};
+}
+
+export function getSessionConfig(): Partial<DhruvConfig> {
+  return { ...sessionConfig };
+}
+
 function readConfigFile(file: string): DhruvConfig {
   if (fs.existsSync(file)) {
     try {
@@ -38,9 +52,15 @@ function readConfigFile(file: string): DhruvConfig {
 }
 
 export function loadConfig(): DhruvConfig {
-  if (fs.existsSync(LOCAL_CONFIG_FILE)) return readConfigFile(LOCAL_CONFIG_FILE);
-  if (fs.existsSync(GLOBAL_CONFIG_FILE)) return readConfigFile(GLOBAL_CONFIG_FILE);
-  return defaultConfig;
+  let base: DhruvConfig;
+  if (fs.existsSync(LOCAL_CONFIG_FILE)) {
+    base = readConfigFile(LOCAL_CONFIG_FILE);
+  } else if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+    base = readConfigFile(GLOBAL_CONFIG_FILE);
+  } else {
+    base = defaultConfig;
+  }
+  return validateAndMergeConfig({ ...base, ...sessionConfig });
 }
 
 function validateAndMergeConfig(config: Partial<DhruvConfig>): DhruvConfig {
@@ -76,7 +96,7 @@ function validateAndMergeConfig(config: Partial<DhruvConfig>): DhruvConfig {
 export function saveConfig(config: Partial<DhruvConfig>, options: { scope?: ConfigScope } = {}) {
   const scope = options.scope ?? 'local';
   const file = scope === 'global' ? GLOBAL_CONFIG_FILE : LOCAL_CONFIG_FILE;
-  const current = scope === 'global' ? readConfigFile(GLOBAL_CONFIG_FILE) : loadConfig();
+  const current = fs.existsSync(file) ? readConfigFile(file) : defaultConfig;
   if (scope === 'global') fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify({ ...current, ...config }, null, 2));
 }
