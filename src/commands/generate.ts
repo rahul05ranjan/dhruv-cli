@@ -54,6 +54,7 @@ export interface GenerateOptions {
 export async function generate(type: string, target: string, options: GenerateOptions = {}) {
   if (!fs.existsSync(target)) {
     printError(`Target file "${target}" does not exist.`);
+    process.exitCode = 1;
     return;
   }
 

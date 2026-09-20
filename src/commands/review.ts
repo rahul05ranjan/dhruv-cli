@@ -105,7 +105,10 @@ export interface ReviewOptions {
 
 export async function review(fileOrDir: string, options: ReviewOptions = {}) {
   const code = options.diff ? readGitDiff(fileOrDir) : readCode(fileOrDir);
-  if (code === undefined) return;
+  if (code === undefined) {
+    process.exitCode = 1;
+    return;
+  }
   const projectRoot = fs.existsSync(fileOrDir) && fs.statSync(fileOrDir).isDirectory() ? fileOrDir : path.dirname(fileOrDir);
   const projectType = detectProjectType(projectRoot);
   const scope = options.diff ? 'the current uncommitted git diff' : 'the supplied source files';
