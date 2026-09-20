@@ -267,4 +267,25 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).toContain('expected impact');
     expect(client.requests[0].prompt).toContain('trade-offs');
   });
+
+  it('sets failing exit code when generating for a nonexistent path', async () => {
+    process.exitCode = undefined;
+    try {
+      await generate('tests', path.join(root, 'nonexistent.ts'));
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = undefined;
+    }
+  });
+
+  it('sets failing exit code when optimizing a nonexistent path', async () => {
+    process.exitCode = undefined;
+    try {
+      await optimize(path.join(root, 'nonexistent.ts'));
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = undefined;
+    }
+  });
 });
+
