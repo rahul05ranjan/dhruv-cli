@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
@@ -172,7 +173,7 @@ describe('CLI output contract', () => {
 
   it('does not persist global flags (--json, --model, --verbose, --timeout) to .dhruv-config.json', async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'dhruv-session-flags-'));
-    const tsNodeLoader = resolve(repoRoot, 'node_modules/ts-node/esm.mjs');
+    const tsNodeLoader = pathToFileURL(resolve(repoRoot, 'node_modules/ts-node/esm.mjs')).href;
     try {
       const result = await execFileAsync(
         process.execPath,
