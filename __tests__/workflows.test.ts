@@ -116,3 +116,18 @@ describe('security workflow requirements', () => {
     }
   });
 });
+
+describe('package distribution and licensing compliance', () => {
+  it('defines an explicit MIT license in package.json', () => {
+    const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
+    expect(pkg.license).toBe('MIT');
+  });
+
+  it('provides a canonical root LICENSE file with copyright notice', () => {
+    const licensePath = resolve(root, 'LICENSE');
+    expect(existsSync(licensePath)).toBe(true);
+    const content = readFileSync(licensePath, 'utf8');
+    expect(content).toContain('MIT License');
+    expect(content).toContain('Copyright (c) 2026 Rahul Ranjan');
+  });
+});
