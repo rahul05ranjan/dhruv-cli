@@ -124,6 +124,26 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).toContain('node-typescript');
   });
 
+  it('reviews a single file and includes its content', async () => {
+    const single = path.join(root, 'index.ts');
+    fs.writeFileSync(single, 'export const single = true;');
+
+    await review(single);
+
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0].prompt).toContain('export const single = true;');
+  });
+
+  it('sets failing exit code when reviewing a nonexistent path', async () => {
+    process.exitCode = undefined;
+    try {
+      await review(path.join(root, 'nonexistent.ts'));
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = undefined;
+    }
+  });
+
   it('redacts credential-like values before security analysis', async () => {
     const source = path.join(root, 'config.ts');
     fs.writeFileSync(source, 'const API_KEY = "sk-live-super-secret";');
