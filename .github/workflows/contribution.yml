@@ -1,7 +1,10 @@
 name: Pull Request Policy
 
 on:
-  pull_request:
+  # This workflow only reads pull-request metadata and applies labels; it
+  # never checks out or executes code from the pull request. Running from the
+  # trusted base branch keeps the policy current for existing Dependabot PRs.
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 
