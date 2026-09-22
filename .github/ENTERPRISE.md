@@ -8,7 +8,7 @@ This repository implements a comprehensive, enterprise-grade CI/CD pipeline with
 
 ### 1. **Continuous Integration (`ci.yml`)**
 - **Multi-OS Testing**: Ubuntu, Windows, macOS
-- **Node.js Matrix**: Versions 18.x, 20.x, 21.x
+- **Node.js Matrix**: Versions 20.x and 22.x
 - **Security Hardening**: Step Security runner hardening
 - **Comprehensive Testing**: Unit tests, integration tests, coverage reporting
 - **Code Quality**: ESLint, TypeScript compilation, security audits
