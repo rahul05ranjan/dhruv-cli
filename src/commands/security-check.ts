@@ -141,7 +141,10 @@ function readDirectory(dir: string): string | undefined {
 
 export async function securityCheck(fileOrDir: string = '.', options: SecurityCheckOptions = {}) {
   const code = readCode(fileOrDir);
-  if (code === undefined) return;
+  if (code === undefined) {
+    process.exitCode = 1;
+    return;
+  }
   const findings = findHighConfidenceFindings(code);
   const safeCode = redactSensitiveContent(code);
   const findingSummary = findings.length === 0

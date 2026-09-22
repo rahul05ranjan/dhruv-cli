@@ -2,6 +2,7 @@
   "name": "@rahul05ranjan/dhruv-cli",
   "version": "1.4.0",
   "description": "AI-powered CLI assistant for developers using Ollama",
+  "license": "MIT",
   "keywords": [
     "ai",
     "cli",

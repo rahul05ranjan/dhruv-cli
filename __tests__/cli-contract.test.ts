@@ -1,7 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(__dirname, '..');
@@ -166,5 +169,35 @@ describe('CLI output contract', () => {
     const parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
     expect(parsed).toHaveProperty('ok');
     expect(parsed.command).toBe('health');
+  });
+
+  it('does not persist global flags (--json, --model, --verbose, --timeout) to .dhruv-config.json', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'dhruv-session-flags-'));
+    const tsNodeLoader = pathToFileURL(resolve(repoRoot, 'node_modules/ts-node/esm.mjs')).href;
+    try {
+      const result = await execFileAsync(
+        process.execPath,
+        ['--loader', tsNodeLoader, resolve(repoRoot, sourceEntry), 'metrics', '--json'],
+        {
+          cwd: tempDir,
+          env: {
+            ...process.env,
+            TS_NODE_PROJECT: resolve(repoRoot, 'tsconfig.json'),
+            DHRUV_METRICS_ENABLED: 'false',
+          },
+        },
+      );
+
+      const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
+      expect(parsed).toMatchObject({
+        ok: true,
+        command: 'metrics',
+      });
+
+      const localConfigFile = join(tempDir, '.dhruv-config.json');
+      expect(existsSync(localConfigFile)).toBe(false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
