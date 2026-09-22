@@ -100,6 +100,13 @@ describe('Dependabot automation', () => {
     const metadata = config.jobs['auto-merge']?.steps.find(step =>
       step.uses?.startsWith('dependabot/fetch-metadata@'));
     expect(metadata?.with?.['skip-commit-verification']).toBe(true);
+
+    const autoMergeSteps = config.jobs['auto-merge']?.steps.filter(step =>
+      step.uses?.startsWith('peter-evans/enable-pull-request-automerge@')) ?? [];
+    expect(autoMergeSteps).toHaveLength(2);
+    for (const step of autoMergeSteps) {
+      expect(step.with?.['pull-request-number']).toBe('${{ github.event.pull_request.number }}');
+    }
   });
 });
 
