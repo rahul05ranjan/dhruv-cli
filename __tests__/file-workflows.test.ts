@@ -189,6 +189,22 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).not.toContain('sk-dependency-secret');
   });
 
+  it('reports accurate per-file line numbers for security findings in multi-file scans', async () => {
+    // first.ts has 20 benign lines
+    const benignLines = Array(20).fill('// harmless line').join('\n');
+    fs.writeFileSync(path.join(root, '01_first.ts'), benignLines);
+
+    // 02_second.ts has secret on line 2
+    fs.writeFileSync(path.join(root, '02_second.ts'), '// harmless header\nconst API_KEY = "sk-live-second-file-secret";\n');
+
+    await securityCheck(root);
+
+    expect(client.requests[0].prompt).toContain('in 02_second.ts at line 2:');
+    expect(client.requests[0].prompt).not.toContain('line 22');
+    expect(client.requests[0].prompt).not.toContain('line 23');
+    expect(client.requests[0].prompt).not.toContain('line 24');
+  });
+
   it('sets a failing exit code in strict mode for high-confidence findings', async () => {
     const source = path.join(root, 'unsafe.ts');
     fs.writeFileSync(source, 'const API_KEY = "sk-live-super-secret";');
