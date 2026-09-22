@@ -17,7 +17,7 @@ permissions:
 jobs:
   auto-approve:
     name: Auto Approve Dependabot PRs
-    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -34,7 +34,7 @@ jobs:
   auto-merge:
     name: Auto Merge Dependabot PRs
     needs: auto-approve
-    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,6 +48,8 @@ jobs:
         uses: dependabot/fetch-metadata@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Dependabot commits in this repository include a sign-off but are not GPG-verified.
+          skip-commit-verification: true
 
       - name: Enable auto-merge for patch updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
