@@ -4,6 +4,7 @@ import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { printError, printSuccess, printInfo } from '../utils/ux.js';
 import { loadConfig } from '../config/config.js';
+import { loadSource } from '../core/source-bundle.js';
 
 function getLanguageForFile(target: string): { name: string; testFramework: string } {
   const ext = path.extname(target).toLowerCase();
@@ -52,13 +53,10 @@ export interface GenerateOptions {
 }
 
 export async function generate(type: string, target: string, options: GenerateOptions = {}) {
-  if (!fs.existsSync(target)) {
-    printError(`Target file "${target}" does not exist.`);
-    process.exitCode = 1;
-    return;
-  }
+  const bundle = loadSource(target);
+  if (!bundle) return;
 
-  const content = fs.readFileSync(target, 'utf-8');
+  const content = bundle.promptContent;
 
   await runCommand({
     name: 'generate',

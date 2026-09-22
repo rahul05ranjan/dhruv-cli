@@ -324,3 +324,4 @@ describe('file analysis commands', () => {
     process.exitCode = 0;
   });
 });
+

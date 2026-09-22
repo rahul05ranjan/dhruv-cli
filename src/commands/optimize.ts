@@ -1,8 +1,8 @@
-import fs from 'fs';
 import path from 'path';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { printError } from '../utils/ux.js';
+import { loadSource } from '../core/source-bundle.js';
 
 function optimizationType(file: string): string {
   const ext = path.extname(file).toLowerCase();
@@ -21,21 +21,11 @@ export async function optimize(file: string) {
     process.exitCode = 1;
     return;
   }
-  if (!fs.existsSync(file)) {
-    printError(`File "${file}" does not exist.`);
-    process.exitCode = 1;
-    return;
-  }
 
-  let content: string;
-  try {
-    content = fs.readFileSync(file, 'utf-8');
-  } catch (err) {
-    printError(`Error reading file "${file}": ${(err as Error).message}`);
-    process.exitCode = 1;
-    return;
-  }
+  const bundle = loadSource(file);
+  if (!bundle) return;
 
+  const content = bundle.promptContent;
   const type = optimizationType(file);
   await runCommand({
     name: 'optimize',
@@ -49,3 +39,4 @@ export async function optimize(file: string) {
     footer: `🔍 Want a code review? Try: dhruv review ${file}`,
   });
 }
+
