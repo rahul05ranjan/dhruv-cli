@@ -123,9 +123,9 @@ program
       if (opts.verbose) config.verbose = true;
       if (opts.json) config.responseFormat = 'json';
       if (opts.timeout) config.timeoutMs = Number(opts.timeout);
-      // Save config for session
+      // Set in-memory config overrides for the session
       const configModule = await import('./config/config.js');
-      configModule.saveConfig(config);
+      configModule.setSessionConfig(config);
     }
   });
 

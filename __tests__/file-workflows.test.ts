@@ -268,24 +268,60 @@ describe('file analysis commands', () => {
     expect(client.requests[0].prompt).toContain('trade-offs');
   });
 
-  it('sets failing exit code when generating for a nonexistent path', async () => {
-    process.exitCode = undefined;
-    try {
-      await generate('tests', path.join(root, 'nonexistent.ts'));
-      expect(process.exitCode).toBe(1);
-    } finally {
-      process.exitCode = undefined;
-    }
+  it('exits with code 1 and skips AI call when review target does not exist', async () => {
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    await review(nonExistent);
+
+    expect(process.exitCode).toBe(1);
+    expect(client.requests).toHaveLength(0);
+    process.exitCode = 0;
   });
 
-  it('sets failing exit code when optimizing a nonexistent path', async () => {
-    process.exitCode = undefined;
-    try {
-      await optimize(path.join(root, 'nonexistent.ts'));
-      expect(process.exitCode).toBe(1);
-    } finally {
-      process.exitCode = undefined;
-    }
+  it('exits with code 1 and skips AI call when review --diff has no uncommitted changes', async () => {
+    process.exitCode = 0;
+    const { execFileSync } = await import('child_process');
+    execFileSync('git', ['init'], { cwd: root });
+
+    await review(root, { diff: true });
+
+    expect(process.exitCode).toBe(1);
+    expect(client.requests).toHaveLength(0);
+    process.exitCode = 0;
+  });
+
+  it('exits with code 1 and skips AI call when security-check target does not exist', async () => {
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    await securityCheck(nonExistent);
+
+    expect(process.exitCode).toBe(1);
+    expect(client.requests).toHaveLength(0);
+    process.exitCode = 0;
+  });
+
+  it('exits with code 1 and skips AI call when generate target does not exist', async () => {
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    await generate('tests', nonExistent);
+
+    expect(process.exitCode).toBe(1);
+    expect(client.requests).toHaveLength(0);
+    process.exitCode = 0;
+  });
+
+  it('exits with code 1 and skips AI call when optimize target does not exist', async () => {
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    await optimize(nonExistent);
+
+    expect(process.exitCode).toBe(1);
+    expect(client.requests).toHaveLength(0);
+    process.exitCode = 0;
   });
 });
 
