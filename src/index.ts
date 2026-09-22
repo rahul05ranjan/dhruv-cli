@@ -3,9 +3,6 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { explain } from './commands/explain.js';
-import { suggest } from './commands/suggest.js';
-import { fix } from './commands/fix.js';
 import { review } from './commands/review.js';
 import { optimize } from './commands/optimize.js';
 import { securityCheck } from './commands/security-check.js';
@@ -20,7 +17,7 @@ import { createRequire } from 'module';
 import { logger, logCommand, logInfo, logError } from './core/logger.js';
 import { metricsCollector } from './core/metrics.js';
 import { securityManager } from './core/security.js';
-import { commandDescription, completionCommands, completionOptions } from './core/command-catalog.js';
+import { commandDescription, completionCommands, completionOptions, queryCommandDefinitions } from './core/command-catalog.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
@@ -31,23 +28,17 @@ program
   .description('AI-powered CLI assistant for developers using Ollama')
   .version(pkg.version);
 
-program
-  .command('explain <query>')
-  .description(commandDescription('explain'))
-  .addHelpText('after', '\nExamples:\n  $ dhruv explain "What is async/await?"\n  $ dhruv explain "Docker containers vs VMs"')
-  .action(explain);
+for (const definition of queryCommandDefinitions) {
+  const argument = definition.argument;
+  const argumentSyntax = argument.required ? `<${argument.name}>` : `[${argument.name}]`;
+  const examples = definition.examples.map((example) => `  $ ${example}`).join('\n');
 
-program
-  .command('suggest <query>')
-  .description(commandDescription('suggest'))
-  .addHelpText('after', '\nExamples:\n  $ dhruv suggest "React performance optimization"\n  $ dhruv suggest "Node.js project structure"')
-  .action(suggest);
-
-program
-  .command('fix <query>')
-  .description(commandDescription('fix'))
-  .addHelpText('after', '\nExamples:\n  $ dhruv fix "TypeError: Cannot read property of undefined"\n  $ dhruv fix "CORS error in Express.js"')
-  .action(fix);
+  program
+    .command(`${definition.name} ${argumentSyntax}`)
+    .description(definition.description)
+    .addHelpText('after', `\nExamples:\n${examples}`)
+    .action(definition.action);
+}
 
 program
   .command('review <fileOrDir>')

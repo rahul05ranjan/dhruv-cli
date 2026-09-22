@@ -1,8 +1,15 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import inquirer from 'inquirer';
+import { explain } from '../src/commands/explain.js';
+import { suggest } from '../src/commands/suggest.js';
+import { fix } from '../src/commands/fix.js';
 import { menu } from '../src/commands/menu';
 import { init } from '../src/commands/init';
 import { listModels } from '../src/core/ai';
+
+jest.mock('../src/commands/explain.js', () => ({ explain: jest.fn() }));
+jest.mock('../src/commands/suggest.js', () => ({ suggest: jest.fn() }));
+jest.mock('../src/commands/fix.js', () => ({ fix: jest.fn() }));
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -118,6 +125,52 @@ describe('interactive commands', () => {
       'metrics',
       'completion',
     ]));
+  });
+
+  it('uses each query Built-in Command prompt and action from the menu', async () => {
+    const prompt = jest.mocked(inquirer.prompt);
+    const queryCommands = [
+      {
+        name: 'explain',
+        message: 'What would you like me to explain?',
+        query: 'async functions',
+        action: jest.mocked(explain),
+      },
+      {
+        name: 'suggest',
+        message: 'What would you like suggestions for?',
+        query: 'React performance',
+        action: jest.mocked(suggest),
+      },
+      {
+        name: 'fix',
+        message: 'Describe the issue you need help fixing:',
+        query: 'CORS error',
+        action: jest.mocked(fix),
+      },
+    ];
+
+    for (const command of queryCommands) {
+      prompt.mockReset();
+      command.action.mockReset();
+      prompt
+        .mockResolvedValueOnce({ filter: '' })
+        .mockResolvedValueOnce({ cmd: command.name })
+        .mockResolvedValueOnce({ query: command.query })
+        .mockResolvedValueOnce({ filter: '' })
+        .mockResolvedValueOnce({ cmd: 'exit' });
+
+      await menu();
+
+      const queryPrompt = (prompt.mock.calls[2][0] as unknown as Array<{ message: string }>)[0];
+      expect(queryPrompt.message).toBe(command.message);
+      expect(command.action).toHaveBeenCalledWith(command.query);
+    }
+
+    prompt.mockReset();
+    jest.mocked(explain).mockReset();
+    jest.mocked(suggest).mockReset();
+    jest.mocked(fix).mockReset();
   });
 
   it('offers command filtering before opening the menu', async () => {
