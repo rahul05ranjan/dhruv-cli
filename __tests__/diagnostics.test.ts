@@ -95,6 +95,36 @@ describe('diagnostic commands', () => {
     }
   });
 
+  it('sets process.exitCode = 1 on FAIL in text mode', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockRejectedValue(new Error('connection refused'));
+    saveConfig({ model: 'test-model', responseFormat: 'text' });
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      await health();
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = 0;
+      logSpy.mockRestore();
+    }
+  });
+
+  it('sets process.exitCode = 0 on PASS in text mode', async () => {
+    process.exitCode = undefined;
+    jest.mocked(listModels).mockResolvedValue(['test-model']);
+    saveConfig({ model: 'test-model', responseFormat: 'text' });
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      await health();
+      expect(process.exitCode ?? 0).toBe(0);
+    } finally {
+      process.exitCode = 0;
+      logSpy.mockRestore();
+    }
+  });
+
   it('retains a local command summary across collector reads', () => {
     metricsCollector.resetPersistent();
     metricsCollector.recordCommand('explain', 1250, true);

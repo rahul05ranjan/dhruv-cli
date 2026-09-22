@@ -18,10 +18,12 @@ function optimizationType(file: string): string {
 export async function optimize(file: string) {
   if (!file || file.trim().length === 0) {
     printError('Please provide a file path to optimize.');
+    process.exitCode = 1;
     return;
   }
   if (!fs.existsSync(file)) {
     printError(`File "${file}" does not exist.`);
+    process.exitCode = 1;
     return;
   }
 
@@ -30,6 +32,7 @@ export async function optimize(file: string) {
     content = fs.readFileSync(file, 'utf-8');
   } catch (err) {
     printError(`Error reading file "${file}": ${(err as Error).message}`);
+    process.exitCode = 1;
     return;
   }
 

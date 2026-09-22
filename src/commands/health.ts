@@ -72,8 +72,8 @@ export async function health(options: HealthOptions = {}): Promise<void> {
 
     const duration = Date.now() - startTime;
     const summary = summarizeResults(results);
+    process.exitCode = summary.fail > 0 ? 1 : 0;
     if (jsonOutput) {
-      process.exitCode = summary.fail > 0 ? 1 : 0;
       process.stdout.write(`${JSON.stringify({
         ok: summary.fail === 0,
         command: 'health',
