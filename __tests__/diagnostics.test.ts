@@ -115,11 +115,19 @@ describe('diagnostic commands', () => {
     jest.mocked(listModels).mockResolvedValue(['test-model']);
     saveConfig({ model: 'test-model', responseFormat: 'text' });
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const memory = jest.spyOn(process, 'memoryUsage').mockReturnValue({
+      rss: 40 * 1024 * 1024,
+      heapTotal: 30 * 1024 * 1024,
+      heapUsed: 20 * 1024 * 1024,
+      external: 1024 * 1024,
+      arrayBuffers: 0,
+    });
 
     try {
       await health();
       expect(process.exitCode ?? 0).toBe(0);
     } finally {
+      memory.mockRestore();
       process.exitCode = 0;
       logSpy.mockRestore();
     }
