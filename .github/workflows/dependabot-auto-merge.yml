@@ -51,7 +51,7 @@ jobs:
         uses: dependabot/fetch-metadata@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Dependabot commits in this repository include a sign-off but are not GPG-verified.
+          # Dependabot commits are unsigned; this job remains gated to Dependabot-authored PRs after branch updates.
           skip-commit-verification: true
 
       - name: Enable auto-merge for patch updates
