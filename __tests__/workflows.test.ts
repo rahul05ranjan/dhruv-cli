@@ -72,7 +72,10 @@ describe('workflow trigger boundaries', () => {
   it('runs branch and pull-request validation only for the default branch', () => {
     for (const name of ['ci.yml', 'contribution.yml', 'labeler.yml', 'dependabot-auto-merge.yml']) {
       const config = workflow(name);
-      const event = config.on[name === 'ci.yml' ? 'push' : 'pull_request'] as { branches?: string[] };
+      const trigger = name === 'ci.yml'
+        ? 'push'
+        : name === 'dependabot-auto-merge.yml' ? 'pull_request_target' : 'pull_request';
+      const event = config.on[trigger] as { branches?: string[] };
       expect(event.branches).toEqual(['main']);
     }
   });
