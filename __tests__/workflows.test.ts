@@ -74,11 +74,22 @@ describe('workflow trigger boundaries', () => {
       const config = workflow(name);
       const trigger = name === 'ci.yml'
         ? 'push'
-        : name === 'dependabot-auto-merge.yml' ? 'pull_request_target' : 'pull_request';
+        : ['contribution.yml', 'dependabot-auto-merge.yml'].includes(name)
+          ? 'pull_request_target'
+          : 'pull_request';
       const event = config.on[trigger] as { branches?: string[] };
       expect(event.branches).toEqual(['main']);
     }
   });
+
+  it.each(['contribution.yml', 'dependabot-auto-merge.yml'])(
+    '%s does not check out pull-request code from the trusted trigger',
+    name => {
+      const config = workflow(name);
+      const steps = Object.values(config.jobs).flatMap(job => job.steps);
+      expect(steps.some(step => step.uses?.startsWith('actions/checkout@'))).toBe(false);
+    },
+  );
 
   it('keeps expensive security jobs off pull-request runs', () => {
     const config = workflow('security.yml');
