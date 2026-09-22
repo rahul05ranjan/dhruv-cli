@@ -181,7 +181,7 @@ program
   .action((shell: string) => {
     const commands = completionCommands();
     const options = completionOptions();
-    let script = '';
+    let script: string;
     switch (shell) {
       case 'zsh':
         script = `#compdef dhruv

@@ -69,7 +69,7 @@ dhruv init
 dhruv suggest "how should I structure this Node.js service?"
 ```
 
-Dhruv requires Node.js 18 or newer. The default model is `gemma3:270m`; choose any model available in your Ollama installation during setup.
+Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choose any model available in your Ollama installation during setup.
 
 ## A command surface built for shipping
 

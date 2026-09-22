@@ -145,7 +145,7 @@ describe('CLI output contract', () => {
   });
 
   it('outputs valid JSON for health command with expected top-level schema', async () => {
-    let stdout = '';
+    let stdout: string;
     try {
       const result = await execFileAsync(
         process.execPath,
