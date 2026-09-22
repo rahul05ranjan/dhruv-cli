@@ -85,6 +85,21 @@ describe('workflow trigger boundaries', () => {
   });
 });
 
+describe('Dependabot automation', () => {
+  it('uses the PR author and accepts unsigned Dependabot commits', () => {
+    const config = workflow('dependabot-auto-merge.yml');
+    const expectedGuard =
+      "github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false";
+
+    expect(config.jobs['auto-approve']?.if).toBe(expectedGuard);
+    expect(config.jobs['auto-merge']?.if).toBe(expectedGuard);
+
+    const metadata = config.jobs['auto-merge']?.steps.find(step =>
+      step.uses?.startsWith('dependabot/fetch-metadata@'));
+    expect(metadata?.with?.['skip-commit-verification']).toBe(true);
+  });
+});
+
 describe('security workflow requirements', () => {
   it('lets TruffleHog select the commit range for push, PR, schedule and manual events', () => {
     const steps = workflow('security.yml').jobs['secret-scan'].steps;
