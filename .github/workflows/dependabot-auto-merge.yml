@@ -1,7 +1,10 @@
 name: Dependabot Auto Merge
 
 on:
-  pull_request:
+  # This workflow only reads PR metadata and never checks out PR code. Running
+  # from the trusted base branch ensures Dependabot PRs use this workflow even
+  # when their generated branch still contains an older workflow definition.
+  pull_request_target:
     branches: [main]
     types:
       - opened
