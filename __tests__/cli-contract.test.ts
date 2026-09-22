@@ -43,6 +43,41 @@ describe('CLI output contract', () => {
     expect(result.stdout).toContain('tests documentation docs component');
   });
 
+  it('preserves query command signatures, descriptions, and examples in help', async () => {
+    const expected = [
+      {
+        name: 'explain',
+        description: 'Explain a concept or command',
+        example: 'dhruv explain "What is async/await?"',
+      },
+      {
+        name: 'suggest',
+        description: 'Get AI-powered suggestions',
+        example: 'dhruv suggest "React performance optimization"',
+      },
+      {
+        name: 'fix',
+        description: 'Get a fix for a coding issue or error',
+        example: 'dhruv fix "TypeError: Cannot read property of undefined"',
+      },
+    ];
+
+    for (const command of expected) {
+      const result = await execFileAsync(
+        process.execPath,
+        ['--loader', loaderEntry, sourceEntry, command.name, '--help'],
+        {
+          cwd: repoRoot,
+          env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+        },
+      );
+
+      expect(result.stdout).toContain(`Usage: dhruv ${command.name} [options] <query>`);
+      expect(result.stdout).toContain(command.description);
+      expect(result.stdout).toContain(command.example);
+    }
+  });
+
   it('generates valid zsh and fish completion scripts with subcommands', async () => {
     const zshResult = await execFileAsync(
       process.execPath,
