@@ -21,13 +21,6 @@ export const commandCatalog: CommandCatalogEntry[] = [
   { name: 'security-check', description: 'Run a security check on code', menuLabel: 'Security Check', options: ['--strict'], arguments: [{ name: 'file', completeFiles: true }] },
   { name: 'generate', description: 'Generate code/tests for a file', menuLabel: 'Generate', options: ['--apply', '--output', '--overwrite'], arguments: [{ name: 'type', choices: ['tests', 'documentation', 'docs', 'component'] }, { name: 'file', completeFiles: true }] },
   // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
-  { name: 'init', description: 'Interactive setup/configuration wizard', menuLabel: 'Init (Setup)' },
-  { name: 'status', description: 'Check Ollama connection and available models', menuLabel: 'Status' },
-  { name: 'health', description: 'Run comprehensive health check', menuLabel: 'Health Check', options: ['--details'] },
-  { name: 'metrics', description: 'Display CLI usage metrics', menuLabel: 'Metrics', options: ['--raw', '--reset'] },
-  { name: 'project-type', description: 'Detect and print the current project type', menuLabel: 'Project Type' },
-  { name: 'menu', description: 'Interactive command palette', menuLabel: 'Menu' },
-  { name: 'completion', description: 'Generate shell completion script', menuLabel: 'Shell Completion', arguments: [{ name: 'shell', choices: ['bash', 'zsh', 'fish'] }] },
 ];
 
 /** Catalog entries that no Built-in Command definition has replaced yet. */

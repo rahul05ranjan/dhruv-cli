@@ -6,6 +6,10 @@ import { listModels } from '../src/core/ai';
 import { explain } from '../src/commands/explain';
 import { suggest } from '../src/commands/suggest';
 import { fix } from '../src/commands/fix';
+import { status } from '../src/commands/status';
+import { health } from '../src/commands/health';
+import { metrics } from '../src/commands/metrics';
+import { themed } from '../src/utils/ux';
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -43,6 +47,14 @@ jest.mock('../src/core/ai', () => ({
 jest.mock('../src/commands/explain', () => ({ explain: jest.fn() }));
 jest.mock('../src/commands/suggest', () => ({ suggest: jest.fn() }));
 jest.mock('../src/commands/fix', () => ({ fix: jest.fn() }));
+jest.mock('../src/commands/status', () => ({ status: jest.fn() }));
+jest.mock('../src/commands/health', () => ({ health: jest.fn() }));
+jest.mock('../src/commands/metrics', () => ({ metrics: jest.fn() }));
+// The init tests above need the real wizard; menu dispatch replaces it once per test.
+jest.mock('../src/commands/init', () => {
+  const actual = jest.requireActual<typeof import('../src/commands/init')>('../src/commands/init');
+  return { init: jest.fn(actual.init) };
+});
 
 jest.mock('inquirer', () => ({
   __esModule: true,
@@ -183,5 +195,77 @@ describe('interactive commands', () => {
     } finally {
       prompt.mockReset();
     }
+  });
+
+  /** Selects one menu entry, then exits the menu. */
+  async function selectFromMenu(name: string): Promise<void> {
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockReset();
+    prompt
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: name })
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: 'exit' });
+    try {
+      await menu();
+    } finally {
+      prompt.mockReset();
+    }
+  }
+
+  it.each([
+    { name: 'init', label: 'Init (Setup)', action: init },
+    { name: 'status', label: 'Status', action: status },
+    { name: 'health', label: 'Health Check', action: health },
+    { name: 'metrics', label: 'Metrics', action: metrics },
+  ])('runs $name from the menu without asking for input', async ({ name, action }) => {
+    const mocked = jest.mocked(action as () => Promise<void>);
+    mocked.mockClear();
+    mocked.mockResolvedValueOnce(undefined);
+
+    await selectFromMenu(name);
+
+    expect(mocked).toHaveBeenCalledTimes(1);
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('offers setup and diagnostic commands under their menu labels', async () => {
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockReset();
+    prompt.mockResolvedValueOnce({ filter: '' }).mockResolvedValueOnce({ cmd: 'exit' });
+
+    await menu();
+
+    const choices = (prompt.mock.calls[1][0] as unknown as Array<{ choices: Array<{ name: string; value: string }> }>)[0].choices;
+    expect(choices).toEqual(expect.arrayContaining([
+      { name: 'Init (Setup)', value: 'init' },
+      { name: 'Status', value: 'status' },
+      { name: 'Health Check', value: 'health' },
+      { name: 'Metrics', value: 'metrics' },
+      { name: 'Project Type', value: 'project-type' },
+      { name: 'Menu', value: 'menu' },
+      { name: 'Shell Completion', value: 'completion' },
+    ]));
+    prompt.mockReset();
+  });
+
+  it('prints the detected project type from the menu', async () => {
+    jest.mocked(console.log).mockClear();
+
+    await selectFromMenu('project-type');
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^Detected project type: \S+$/));
+  });
+
+  it.each([
+    { name: 'completion', hint: 'Run `dhruv completion <bash|zsh|fish>` to install shell completion.' },
+    { name: 'menu', hint: 'You selected: menu' },
+  ])('prints a hint instead of running $name from the menu', async ({ name, hint }) => {
+    jest.mocked(console.log).mockClear();
+
+    await selectFromMenu(name);
+
+    expect(themed).toHaveBeenCalledWith(hint, 'accent');
+    expect(console.log).toHaveBeenCalledWith(hint);
   });
 });

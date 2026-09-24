@@ -4,6 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { explain } from '../src/commands/explain';
 import { suggest } from '../src/commands/suggest';
 import { fix } from '../src/commands/fix';
+import { init } from '../src/commands/init';
+import { status } from '../src/commands/status';
+import { health } from '../src/commands/health';
+import { metrics } from '../src/commands/metrics';
+import { menu } from '../src/commands/menu';
+import { detectProjectType } from '../src/utils/projectType';
 import { registerBuiltInCommands } from '../src/commands/register-built-in-commands';
 import { completionScript } from '../src/commands/completion';
 
@@ -19,11 +25,25 @@ jest.mock('chalk', () => {
 jest.mock('../src/commands/explain',() => ({ explain: jest.fn() }));
 jest.mock('../src/commands/suggest', () => ({ suggest: jest.fn() }));
 jest.mock('../src/commands/fix', () => ({ fix: jest.fn() }));
+jest.mock('../src/commands/init', () => ({ init: jest.fn() }));
+jest.mock('../src/commands/status', () => ({ status: jest.fn() }));
+jest.mock('../src/commands/health', () => ({ health: jest.fn() }));
+jest.mock('../src/commands/metrics', () => ({ metrics: jest.fn() }));
+jest.mock('../src/commands/menu', () => ({ menu: jest.fn() }));
+jest.mock('../src/utils/projectType', () => ({ detectProjectType: jest.fn(() => 'go') }));
 
 const queryCommands = [
   { name: 'explain', action: explain, example: 'dhruv explain "What is async/await?"' },
   { name: 'suggest', action: suggest, example: 'dhruv suggest "React performance optimization"' },
   { name: 'fix', action: fix, example: 'dhruv fix "CORS error in Express.js"' },
+];
+
+const diagnosticCommands = [
+  { name: 'init', usage: 'Usage: dhruv init [options]', argv: [], action: init, expected: [] },
+  { name: 'status', usage: 'Usage: dhruv status [options]', argv: [], action: status, expected: [] },
+  { name: 'health', usage: 'Usage: dhruv health [options]', argv: ['--details'], action: health, expected: [{ details: true }], help: '--details' },
+  { name: 'metrics', usage: 'Usage: dhruv metrics [options]', argv: ['--raw', '--reset'], action: metrics, expected: [{ raw: true, reset: true }], help: '--reset' },
+  { name: 'menu', usage: 'Usage: dhruv menu [options]', argv: [], action: menu, expected: [] },
 ];
 
 function createProgram(): Command {
@@ -57,6 +77,46 @@ describe('Built-in Command line adapter', () => {
     await createProgram().parseAsync(['node', 'dhruv', name, 'why is it slow?']);
 
     expect(action).toHaveBeenCalledWith('why is it slow?');
+  });
+
+  it.each(diagnosticCommands)('documents $name', ({ name, usage, help }) => {
+    const text = helpFor(createProgram(), name);
+
+    expect(text).toContain(usage);
+    if (help) expect(text).toContain(help);
+  });
+
+  it.each(diagnosticCommands)('runs $name from the command line', async ({ name, argv, action, expected }) => {
+    await createProgram().parseAsync(['node', 'dhruv', name, ...argv]);
+
+    expect(jest.mocked(action as (...args: unknown[]) => unknown).mock.calls).toEqual([expected]);
+  });
+
+  it('prints the detected project type', async () => {
+    jest.mocked(console.log).mockClear();
+
+    await createProgram().parseAsync(['node', 'dhruv', 'project-type']);
+
+    expect(detectProjectType).toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalledWith('Detected project type: go');
+  });
+
+  it.each([
+    { argv: ['zsh'], expected: '#compdef dhruv' },
+    { argv: [], expected: 'complete -F _dhruv_completion dhruv' },
+  ])('prints the completion script for $argv (bash by default)', async ({ argv, expected }) => {
+    jest.mocked(console.log).mockClear();
+
+    await createProgram().parseAsync(['node', 'dhruv', 'completion', ...argv]);
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining(expected));
+  });
+
+  it('documents the completion shell argument', () => {
+    const text = helpFor(createProgram(), 'completion');
+
+    expect(text).toContain('Usage: dhruv completion [options] [shell]');
+    expect(text).toContain('shell type (bash|zsh|fish) (default: "bash")');
   });
 
   it('registers the global session options', () => {
@@ -99,6 +159,18 @@ describe('Built-in Command completion adapter', () => {
     expect(offered).not.toContain('--strict');
     expect(offered).not.toContain('--diff');
     expect(bashCompletions(name, 'question', '')).not.toContain('review');
+  });
+
+  itWithBash.each([
+    { name: 'health', own: ['--details'] },
+    { name: 'metrics', own: ['--raw', '--reset'] },
+    { name: 'status', own: [] },
+  ])('offers $name its own options and no others', ({ name, own }) => {
+    const offered = bashCompletions(name, '--');
+
+    expect(offered).toEqual(expect.arrayContaining([...own, '--help', '--json']));
+    expect(offered).not.toContain('--strict');
+    expect(offered).not.toContain(name === 'health' ? '--raw' : '--details');
   });
 
   itWithBash('keeps argument completion for commands without definitions yet', () => {
