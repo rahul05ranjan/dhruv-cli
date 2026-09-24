@@ -6,6 +6,10 @@ import { listModels } from '../src/core/ai';
 import { explain } from '../src/commands/explain';
 import { suggest } from '../src/commands/suggest';
 import { fix } from '../src/commands/fix';
+import { review } from '../src/commands/review';
+import { optimize } from '../src/commands/optimize';
+import { securityCheck } from '../src/commands/security-check';
+import { generate } from '../src/commands/generate';
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -43,6 +47,10 @@ jest.mock('../src/core/ai', () => ({
 jest.mock('../src/commands/explain', () => ({ explain: jest.fn() }));
 jest.mock('../src/commands/suggest', () => ({ suggest: jest.fn() }));
 jest.mock('../src/commands/fix', () => ({ fix: jest.fn() }));
+jest.mock('../src/commands/review', () => ({ review: jest.fn() }));
+jest.mock('../src/commands/optimize', () => ({ optimize: jest.fn() }));
+jest.mock('../src/commands/security-check', () => ({ securityCheck: jest.fn() }));
+jest.mock('../src/commands/generate', () => ({ generate: jest.fn() }));
 
 jest.mock('inquirer', () => ({
   __esModule: true,
@@ -183,5 +191,89 @@ describe('interactive commands', () => {
     } finally {
       prompt.mockReset();
     }
+  });
+
+  type MenuQuestion = { name: string; type: string; message: string; default?: string; choices?: string[] };
+
+  /** Runs the menu once for `cmd`, answering its argument prompt with `answers`, then exits. */
+  async function runMenuCommand(cmd: string, answers: Record<string, string>): Promise<{ label?: string; questions: MenuQuestion[] }> {
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockReset();
+    prompt
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd })
+      .mockResolvedValueOnce(answers)
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: 'exit' });
+    try {
+      await menu();
+      const choices = (prompt.mock.calls[1][0] as unknown as Array<{ choices: Array<{ name: string; value: string }> }>)[0].choices;
+      return {
+        label: choices.find((choice) => choice.value === cmd)?.name,
+        questions: prompt.mock.calls[2][0] as unknown as MenuQuestion[],
+      };
+    } finally {
+      prompt.mockReset();
+    }
+  }
+
+  it.each([
+    { name: 'review', label: 'Review', argument: 'fileOrDir', message: 'Enter file or directory path to review:', action: review },
+    { name: 'optimize', label: 'Optimize', argument: 'file', message: 'Enter file path to optimize:', action: optimize },
+  ])('runs $name from the menu with the prompted path', async ({ name, label, argument, message, action }) => {
+    jest.mocked(action).mockClear();
+
+    const menuRun = await runMenuCommand(name, { [argument]: 'src/app.ts' });
+
+    expect(menuRun.label).toBe(label);
+    expect(menuRun.questions).toEqual([expect.objectContaining({ type: 'input', name: argument, message })]);
+    expect(action).toHaveBeenCalledWith('src/app.ts', ...(name === 'review' ? [{}] : []));
+  });
+
+  it.each([
+    { name: 'review', argument: 'fileOrDir', action: review },
+    { name: 'optimize', argument: 'file', action: optimize },
+  ])('skips $name when the menu path is empty', async ({ name, argument, action }) => {
+    jest.mocked(action).mockClear();
+
+    await runMenuCommand(name, { [argument]: '' });
+
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it('runs security-check from the menu, defaulting to the current directory', async () => {
+    jest.mocked(securityCheck).mockClear();
+
+    const menuRun = await runMenuCommand('security-check', { fileOrDir: '.' });
+
+    expect(menuRun.label).toBe('Security Check');
+    expect(menuRun.questions).toEqual([expect.objectContaining({
+      type: 'input',
+      name: 'fileOrDir',
+      message: 'Enter file or directory path to check (or press enter for current directory):',
+      default: '.',
+    })]);
+    expect(securityCheck).toHaveBeenCalledWith('.', {});
+  });
+
+  it('runs generate from the menu with the chosen type and target', async () => {
+    jest.mocked(generate).mockClear();
+
+    const menuRun = await runMenuCommand('generate', { type: 'docs', target: 'src/app.ts' });
+
+    expect(menuRun.label).toBe('Generate');
+    expect(menuRun.questions).toEqual([
+      expect.objectContaining({ type: 'list', name: 'type', message: 'What would you like to generate?', choices: ['tests', 'documentation', 'docs', 'component'] }),
+      expect.objectContaining({ type: 'input', name: 'target', message: 'Enter target file path:' }),
+    ]);
+    expect(generate).toHaveBeenCalledWith('docs', 'src/app.ts', {});
+  });
+
+  it('skips generate when the menu target is empty', async () => {
+    jest.mocked(generate).mockClear();
+
+    await runMenuCommand('generate', { type: 'tests', target: '' });
+
+    expect(generate).not.toHaveBeenCalled();
   });
 });

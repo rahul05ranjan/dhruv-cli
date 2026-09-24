@@ -16,10 +16,6 @@ export interface CommandCatalogEntry {
 
 export const commandCatalog: CommandCatalogEntry[] = [
   // Legacy source-driven commands: #127 moves these into Built-in Command definitions.
-  { name: 'review', description: 'Review code in a file or directory', menuLabel: 'Review', options: ['--diff'], arguments: [{ name: 'file', completeFiles: true }] },
-  { name: 'optimize', description: 'Optimize a file (e.g., package.json)', menuLabel: 'Optimize', arguments: [{ name: 'file', completeFiles: true }] },
-  { name: 'security-check', description: 'Run a security check on code', menuLabel: 'Security Check', options: ['--strict'], arguments: [{ name: 'file', completeFiles: true }] },
-  { name: 'generate', description: 'Generate code/tests for a file', menuLabel: 'Generate', options: ['--apply', '--output', '--overwrite'], arguments: [{ name: 'type', choices: ['tests', 'documentation', 'docs', 'component'] }, { name: 'file', completeFiles: true }] },
   // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
   { name: 'init', description: 'Interactive setup/configuration wizard', menuLabel: 'Init (Setup)' },
   { name: 'status', description: 'Check Ollama connection and available models', menuLabel: 'Status' },
