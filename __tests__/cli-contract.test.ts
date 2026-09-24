@@ -71,6 +71,18 @@ describe('CLI output contract', () => {
     )).rejects.toMatchObject({ code: 2 });
   });
 
+  it('documents query commands from their Built-in Command definitions', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      ['--loader', loaderEntry, sourceEntry, 'explain', '--help'],
+      { cwd: repoRoot, env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' } },
+    );
+
+    expect(result.stdout).toContain('Usage: dhruv explain [options] <query>');
+    expect(result.stdout).toContain('Explain a concept or command');
+    expect(result.stdout).toContain('$ dhruv explain "What is async/await?"');
+  });
+
   it('documents strict security checks in command help', async () => {
     const result = await execFileAsync(
       process.execPath,

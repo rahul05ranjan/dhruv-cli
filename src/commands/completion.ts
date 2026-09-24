@@ -1,0 +1,209 @@
+/**
+ * Completion adapter: builds bash, zsh and fish completion scripts from
+ * Built-in Command definitions. A defined command advertises only its own
+ * options (plus the global options and help); commands still in the legacy
+ * catalog keep the shared option union until they are migrated.
+ */
+import chalk from 'chalk';
+import { builtInCommands, globalOptions, type BuiltInArgument, type BuiltInOption } from './built-in-commands.js';
+import { legacyCommandCatalog } from '../core/command-catalog.js';
+
+export const supportedShells = ['bash', 'zsh', 'fish'] as const;
+
+const helpOption: BuiltInOption = { flags: '-h, --help', description: 'display help for command' };
+
+interface CompletionFlag {
+  short?: string;
+  long?: string;
+  valueName?: string;
+  description: string;
+}
+
+interface CompletionTarget {
+  name: string;
+  choices?: { position: number; name: string; values: readonly string[] };
+  completeFiles: boolean;
+  /** Per-command options; undefined means the legacy shared union. */
+  flags?: CompletionFlag[];
+}
+
+function parseFlags(option: BuiltInOption): CompletionFlag {
+  const tokens = option.flags.split(/[ ,|]+/).filter(Boolean);
+  const value = tokens.find((token) => /^[<[]/.test(token));
+  return {
+    short: tokens.find((token) => /^-[^-]$/.test(token)),
+    long: tokens.find((token) => token.startsWith('--')),
+    valueName: value?.replace(/[<>[\]]/g, ''),
+    description: option.description,
+  };
+}
+
+function argumentFacts(args: readonly Pick<BuiltInArgument, 'name' | 'choices' | 'completeFiles'>[] = []): Pick<CompletionTarget, 'choices' | 'completeFiles'> {
+  const position = args.findIndex((argument) => argument.choices);
+  const withChoices = args[position];
+  return {
+    choices: withChoices?.choices ? { position: position + 1, name: withChoices.name, values: withChoices.choices } : undefined,
+    completeFiles: args.some((argument) => argument.completeFiles),
+  };
+}
+
+function completionTargets(): CompletionTarget[] {
+  return [
+    ...builtInCommands.map((definition) => ({
+      name: definition.name,
+      ...argumentFacts(definition.arguments),
+      flags: [...(definition.options ?? []), ...globalOptions, helpOption].map(parseFlags),
+    })),
+    ...legacyCommandCatalog().map((entry) => ({ name: entry.name, ...argumentFacts(entry.arguments) })),
+  ];
+}
+
+/** Options accepted before any command, plus every legacy command option. */
+function sharedOptions(): string[] {
+  const options = new Set(['--help', '--version', ...globalOptions.map((option) => parseFlags(option).long ?? '')]);
+  legacyCommandCatalog().forEach((command) => command.options?.forEach((option) => options.add(option)));
+  return [...options].filter(Boolean);
+}
+
+function flagWords(flags: CompletionFlag[]): string {
+  return flags.flatMap((flag) => [flag.long, flag.short]).filter(Boolean).join(' ');
+}
+
+function singleQuoted(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function bashScript(targets: CompletionTarget[], commands: string, options: string): string {
+  const choiceBlocks = targets.filter((target) => target.choices?.position === 1).map((target) => `
+  if [[ "$prev" == "${target.name}" ]]; then
+    COMPREPLY=( $(compgen -W "${target.choices?.values.join(' ')}" -- "$cur") )
+    return 0
+  fi`).join('');
+  const fileCommands = targets.filter((target) => target.completeFiles && !target.choices);
+  const fileBlock = fileCommands.length === 0 ? '' : `
+  if [[ ${fileCommands.map((target) => `"$prev" == "${target.name}"`).join(' || ')} ]]; then
+    COMPREPLY=( $(compgen -f -- "$cur") )
+    return 0
+  fi`;
+  const perCommand = targets.filter((target) => target.flags);
+  const perCommandBlock = perCommand.length === 0 ? '' : `
+  if [[ $COMP_CWORD -gt 1 ]]; then
+    case "\${COMP_WORDS[1]}" in
+${perCommand.map((target) => `      ${target.name})
+        commands=""
+        options="${flagWords(target.flags ?? [])}"
+        ;;`).join('\n')}
+    esac
+  fi`;
+
+  return `#!/bin/bash
+_dhruv_completion() {
+  local cur prev commands options
+  COMPREPLY=()
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  commands="${commands}"
+  options="${options}"
+${choiceBlocks}${fileBlock}${perCommandBlock}
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+  elif [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+  else
+    COMPREPLY=( $(compgen -W "$commands $options" -- "$cur") )
+  fi
+}
+complete -F _dhruv_completion dhruv`;
+}
+
+function zshOptionSpecs(flag: CompletionFlag): string[] {
+  const description = flag.description.replace(/([[\]:\\])/g, '\\$1');
+  const value = flag.valueName ? `:${flag.valueName}:` : '';
+  return [flag.long, flag.short].filter(Boolean).map((name) => singleQuoted(`${name}[${description}]${value}`));
+}
+
+function zshBranch(target: CompletionTarget): string | undefined {
+  const specs = [
+    ...(target.choices ? [`'${target.choices.position}:${target.choices.name}:(${target.choices.values.join(' ')})'`] : []),
+    ...(target.completeFiles ? [`'*:file:_files'`] : []),
+    ...(target.flags ?? []).flatMap(zshOptionSpecs),
+  ];
+  return specs.length === 0 ? undefined : `        ${target.name}) _arguments ${specs.join(' ')} ;;`;
+}
+
+function zshScript(targets: CompletionTarget[], commands: string, options: string): string {
+  const branches = targets.map(zshBranch).filter(Boolean).join('\n');
+  return `#compdef dhruv
+_dhruv_completion() {
+  local -a commands
+  commands=(${commands})
+  _arguments -C \\
+    '1:command:->cmds' \\
+    '*::options:->args'
+  case "$state" in
+    cmds)
+      _describe -t commands 'dhruv command' commands
+      ;;
+    args)
+      case $words[1] in
+${branches}
+        *)
+          _arguments '*:options:(${options})'
+          ;;
+      esac
+      ;;
+  esac
+}
+compdef _dhruv_completion dhruv`;
+}
+
+function fishScript(targets: CompletionTarget[], commands: string, options: string): string {
+  const seen = (name: string) => `'__fish_seen_subcommand_from ${name}'`;
+  const perCommand = targets.filter((target) => target.flags);
+  const lines = [`complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'`];
+  for (const target of targets.filter((candidate) => candidate.choices)) {
+    lines.push(`complete -c dhruv -f -n ${seen(target.name)} -a '${target.choices?.values.join(' ')}'`);
+  }
+  for (const target of perCommand) {
+    lines.push(`complete -c dhruv ${target.completeFiles ? '-F' : '-f'} -n ${seen(target.name)}`);
+    for (const flag of target.flags ?? []) {
+      const names = [flag.short && `-s ${flag.short.slice(1)}`, flag.long && `-l ${flag.long.slice(2)}`].filter(Boolean).join(' ');
+      lines.push(`complete -c dhruv -n ${seen(target.name)} ${names}${flag.valueName ? ' -r' : ''} -d ${singleQuoted(flag.description)}`);
+    }
+  }
+  const legacyCondition = perCommand.length === 0
+    ? 'not __fish_use_subcommand'
+    : `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${perCommand.map((target) => target.name).join(' ')}`;
+  lines.push(`complete -c dhruv -f -n '${legacyCondition}' -a '${options}'`);
+  return lines.join('\n');
+}
+
+/** Returns the completion script for a supported shell, or undefined. */
+export function completionScript(shell: string): string | undefined {
+  const targets = completionTargets();
+  const commands = targets.map((target) => target.name).join(' ');
+  const options = sharedOptions().join(' ');
+  switch (shell) {
+  case 'bash':
+    return bashScript(targets, commands, options);
+  case 'zsh':
+    return zshScript(targets, commands, options);
+  case 'fish':
+    return fishScript(targets, commands, options);
+  default:
+    return undefined;
+  }
+}
+
+/** The `completion` command: prints the script, or exits 2 for an unsupported shell. */
+export function completion(shell: string = 'bash'): void {
+  const script = completionScript(shell);
+  if (script === undefined) {
+    console.error(chalk.red(`Unsupported shell "${shell}". Choose bash, zsh, or fish.`));
+    process.exitCode = 2;
+    return;
+  }
+  console.log(script);
+  console.log(`\n# To enable tab completion, add the above to your shell profile or source it directly.`);
+}
