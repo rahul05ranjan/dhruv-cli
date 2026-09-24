@@ -1,3 +1,16 @@
+## [1.8.7](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.6...v1.8.7) (2026-09-24)
+
+
+### Bug Fixes
+
+* **ci:** load the real semantic-release config and require a release decision ([#138](https://github.com/rahul05ranjan/dhruv-cli/issues/138)) ([d830f0d](https://github.com/rahul05ranjan/dhruv-cli/commit/d830f0d5eb009510a8239f9edb67ed89f5ddaac8))
+
+# [1.4.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.6...v1.4.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **ci:** load the real semantic-release config and require a release decision ([#138](https://github.com/rahul05ranjan/dhruv-cli/issues/138)) ([d830f0d](https://github.com/rahul05ranjan/dhruv-cli/commit/d830f0d5eb009510a8239f9edb67ed89f5ddaac8))
 # Changelog
 
 ## [1.1.1](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.1.0...v1.1.1) (2025-06-29)
