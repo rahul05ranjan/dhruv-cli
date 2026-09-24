@@ -1,19 +1,12 @@
 import inquirer from 'inquirer';
 import { themed } from '../utils/ux.js';
-import { review } from './review.js';
-import { optimize } from './optimize.js';
-import { securityCheck } from './security-check.js';
-import { generate } from './generate.js';
-import { init } from './init.js';
 import chalk from 'chalk';
-import { legacyCommandCatalog } from '../core/command-catalog.js';
 import { builtInCommands, findBuiltInCommand, type BuiltInCommand } from './built-in-commands.js';
 
 // Built lazily: definitions import command modules that may import this menu.
 function menuChoices() {
   return [
     ...builtInCommands.map(({ menuLabel, name }) => ({ name: menuLabel, value: name })),
-    ...legacyCommandCatalog().map(({ menuLabel, name }) => ({ name: menuLabel, value: name })),
     { name: 'Exit', value: 'exit' },
   ];
 }
@@ -64,14 +57,7 @@ export async function menu() {
 
       try {
         const definition = findBuiltInCommand(cmd);
-        if (definition) {
-          await runFromMenu(definition);
-        } else switch (cmd) {
-        // Legacy source-driven commands: #127 moves these into Built-in Command definitions.
-        // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
-        default:
-          console.log(themed(`You selected: ${cmd}`, 'accent'));
-        }
+        if (definition) await runFromMenu(definition);
       } catch (error) {
         console.error(chalk.red(`Error executing ${cmd}: ${(error as Error).message}`));
       }

@@ -9,6 +9,9 @@ import { projectType } from '../project-type.js';
 import { menu } from '../menu.js';
 import { completion } from '../completion.js';
 
+/** Shells the completion adapter can script. The only list: help, menu hint and completion derive from it. */
+const completionShells = ['bash', 'zsh', 'fish'] as const;
+
 /**
  * Diagnostics, setup and remaining commands (init … completion).
  *
@@ -66,12 +69,11 @@ export const diagnosticCommands: readonly BuiltInCommand[] = [
     arguments: [{
       name: 'shell',
       required: false,
-      description: 'shell type (bash|zsh|fish)',
+      description: `shell type (${completionShells.join('|')})`,
       defaultValue: 'bash',
-      // Literal on purpose: reading `supportedShells` here would cycle through completion.ts.
-      choices: ['bash', 'zsh', 'fish'],
+      choices: completionShells,
     }],
-    menuHint: 'Run `dhruv completion <bash|zsh|fish>` to install shell completion.',
+    menuHint: `Run \`dhruv completion <${completionShells.join('|')}>\` to install shell completion.`,
     run: ({ shell }) => completion(shell),
   },
 ];

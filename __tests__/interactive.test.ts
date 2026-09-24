@@ -14,6 +14,9 @@ import { status } from '../src/commands/status';
 import { health } from '../src/commands/health';
 import { metrics } from '../src/commands/metrics';
 import { themed } from '../src/utils/ux';
+import { findBuiltInCommand } from '../src/commands/built-in-commands';
+
+const generateTypes = () => findBuiltInCommand('generate')?.arguments?.[0]?.choices ?? [];
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -347,7 +350,7 @@ describe('interactive commands', () => {
 
     expect(menuRun.label).toBe('Generate');
     expect(menuRun.questions).toEqual([
-      expect.objectContaining({ type: 'list', name: 'type', message: 'What would you like to generate?', choices: ['tests', 'documentation', 'docs', 'component'] }),
+      expect.objectContaining({ type: 'list', name: 'type', message: 'What would you like to generate?', choices: [...generateTypes()] }),
       expect.objectContaining({ type: 'input', name: 'target', message: 'Enter target file path:' }),
     ]);
     expect(generate).toHaveBeenCalledWith('docs', 'src/app.ts', {});

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Command } from 'commander';
-import { spawnSync } from 'node:child_process';
+import { bashCompletions, itWithBash } from './helpers/bash-completion';
 import { explain } from '../src/commands/explain';
 import { suggest } from '../src/commands/suggest';
 import { fix } from '../src/commands/fix';
@@ -16,6 +16,7 @@ import { menu } from '../src/commands/menu';
 import { detectProjectType } from '../src/utils/projectType';
 import { registerBuiltInCommands } from '../src/commands/register-built-in-commands';
 import { completionScript } from '../src/commands/completion';
+import { findBuiltInCommand } from '../src/commands/built-in-commands';
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -190,25 +191,6 @@ describe('Built-in Command line adapter', () => {
   });
 });
 
-const bashAvailable = spawnSync('bash', ['-c', 'exit 0']).status === 0;
-const itWithBash = bashAvailable ? it : it.skip;
-
-/** Runs the generated bash completion for the given words (the last word is the one being completed). */
-function bashCompletions(...words: string[]): string[] {
-  const result = spawnSync('bash', ['-c', [
-    'eval "$DHRUV_COMPLETION"',
-    'COMP_WORDS=(dhruv "$@")',
-    'COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 ))',
-    '_dhruv_completion',
-    'printf "%s\\n" "${COMPREPLY[@]}"',
-  ].join('\n'), 'bash', ...words], {
-    env: { ...process.env, DHRUV_COMPLETION: completionScript('bash') },
-    encoding: 'utf8',
-  });
-  if (result.status !== 0) throw new Error(result.stderr);
-  return result.stdout.split(/\r?\n/).filter(Boolean);
-}
-
 describe('Built-in Command completion adapter', () => {
   itWithBash('offers every Built-in Command name for the first word', () => {
     expect(bashCompletions('')).toEqual(expect.arrayContaining(['explain', 'suggest', 'fix', 'review', 'status', 'completion']));
@@ -247,9 +229,18 @@ describe('Built-in Command completion adapter', () => {
     expect(offered).not.toContain(name === 'health' ? '--raw' : '--details');
   });
 
-  itWithBash('keeps argument completion for commands without definitions yet', () => {
-    expect(bashCompletions('generate', '')).toEqual(['tests', 'documentation', 'docs', 'component']);
-    expect(bashCompletions('completion', '')).toEqual(['bash', 'zsh', 'fish']);
+  itWithBash.each([
+    { name: 'review', expected: ['--diff'] },
+    { name: 'generate', expected: ['--apply', '--output', '--overwrite'] },
+  ])('offers $name options, not files or choices, for a dash right after the command', ({ name, expected }) => {
+    expect(bashCompletions(name, '--')).toEqual(expect.arrayContaining(expected));
+  });
+
+  itWithBash.each(['generate', 'completion'])('offers the %s argument choices from its definition', (name) => {
+    const choices = findBuiltInCommand(name)?.arguments?.find((argument) => argument.choices)?.choices;
+
+    expect(choices?.length).toBeGreaterThan(0);
+    expect(bashCompletions(name, '')).toEqual(choices);
   });
 
   it('advertises per-command options in zsh', () => {
