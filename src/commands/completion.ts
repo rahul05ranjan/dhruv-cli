@@ -1,14 +1,11 @@
 /**
  * Completion adapter: builds bash, zsh and fish completion scripts from
- * Built-in Command definitions. A defined command advertises only its own
- * options (plus the global options and help); commands still in the legacy
- * catalog keep the shared option union until they are migrated.
+ * Built-in Command definitions. Each command advertises only its own options,
+ * plus the global options and help. Before a command (and for Plugin Commands,
+ * which have no definition) only the program-level options are offered.
  */
 import chalk from 'chalk';
-import { builtInCommands, globalOptions, type BuiltInArgument, type BuiltInOption } from './built-in-commands.js';
-import { legacyCommandCatalog } from '../core/command-catalog.js';
-
-export const supportedShells = ['bash', 'zsh', 'fish'] as const;
+import { builtInCommands, findBuiltInCommand, globalOptions, type BuiltInArgument, type BuiltInOption } from './built-in-commands.js';
 
 const helpOption: BuiltInOption = { flags: '-h, --help', description: 'display help for command' };
 
@@ -23,8 +20,7 @@ interface CompletionTarget {
   name: string;
   choices?: { position: number; name: string; values: readonly string[] };
   completeFiles: boolean;
-  /** Per-command options; undefined means the legacy shared union. */
-  flags?: CompletionFlag[];
+  flags: CompletionFlag[];
 }
 
 function parseFlags(option: BuiltInOption): CompletionFlag {
@@ -38,7 +34,7 @@ function parseFlags(option: BuiltInOption): CompletionFlag {
   };
 }
 
-function argumentFacts(args: readonly Pick<BuiltInArgument, 'name' | 'choices' | 'completeFiles'>[] = []): Pick<CompletionTarget, 'choices' | 'completeFiles'> {
+function argumentFacts(args: readonly BuiltInArgument[] = []): Pick<CompletionTarget, 'choices' | 'completeFiles'> {
   const position = args.findIndex((argument) => argument.choices);
   const withChoices = args[position];
   return {
@@ -48,21 +44,16 @@ function argumentFacts(args: readonly Pick<BuiltInArgument, 'name' | 'choices' |
 }
 
 function completionTargets(): CompletionTarget[] {
-  return [
-    ...builtInCommands.map((definition) => ({
-      name: definition.name,
-      ...argumentFacts(definition.arguments),
-      flags: [...(definition.options ?? []), ...globalOptions, helpOption].map(parseFlags),
-    })),
-    ...legacyCommandCatalog().map((entry) => ({ name: entry.name, ...argumentFacts(entry.arguments) })),
-  ];
+  return builtInCommands.map((definition) => ({
+    name: definition.name,
+    ...argumentFacts(definition.arguments),
+    flags: [...(definition.options ?? []), ...globalOptions, helpOption].map(parseFlags),
+  }));
 }
 
-/** Options accepted before any command, plus every legacy command option. */
-function sharedOptions(): string[] {
-  const options = new Set(['--help', '--version', ...globalOptions.map((option) => parseFlags(option).long ?? '')]);
-  legacyCommandCatalog().forEach((command) => command.options?.forEach((option) => options.add(option)));
-  return [...options].filter(Boolean);
+/** Program-level options: accepted before any command. */
+function programOptions(): string[] {
+  return ['--help', '--version', ...globalOptions.map((option) => parseFlags(option).long ?? '')].filter(Boolean);
 }
 
 function flagWords(flags: CompletionFlag[]): string {
@@ -75,23 +66,22 @@ function singleQuoted(value: string): string {
 
 function bashScript(targets: CompletionTarget[], commands: string, options: string): string {
   const choiceBlocks = targets.filter((target) => target.choices?.position === 1).map((target) => `
-  if [[ "$prev" == "${target.name}" ]]; then
+  if [[ "$cur" != -* && "$prev" == "${target.name}" ]]; then
     COMPREPLY=( $(compgen -W "${target.choices?.values.join(' ')}" -- "$cur") )
     return 0
   fi`).join('');
   const fileCommands = targets.filter((target) => target.completeFiles && !target.choices);
   const fileBlock = fileCommands.length === 0 ? '' : `
-  if [[ ${fileCommands.map((target) => `"$prev" == "${target.name}"`).join(' || ')} ]]; then
+  if [[ "$cur" != -* ]] && [[ ${fileCommands.map((target) => `"$prev" == "${target.name}"`).join(' || ')} ]]; then
     COMPREPLY=( $(compgen -f -- "$cur") )
     return 0
   fi`;
-  const perCommand = targets.filter((target) => target.flags);
-  const perCommandBlock = perCommand.length === 0 ? '' : `
+  const perCommandBlock = `
   if [[ $COMP_CWORD -gt 1 ]]; then
     case "\${COMP_WORDS[1]}" in
-${perCommand.map((target) => `      ${target.name})
+${targets.map((target) => `      ${target.name})
         commands=""
-        options="${flagWords(target.flags ?? [])}"
+        options="${flagWords(target.flags)}"
         ;;`).join('\n')}
     esac
   fi`;
@@ -127,7 +117,7 @@ function zshBranch(target: CompletionTarget): string | undefined {
   const specs = [
     ...(target.choices ? [`'${target.choices.position}:${target.choices.name}:(${target.choices.values.join(' ')})'`] : []),
     ...(target.completeFiles ? [`'*:file:_files'`] : []),
-    ...(target.flags ?? []).flatMap(zshOptionSpecs),
+    ...target.flags.flatMap(zshOptionSpecs),
   ];
   return specs.length === 0 ? undefined : `        ${target.name}) _arguments ${specs.join(' ')} ;;`;
 }
@@ -160,22 +150,19 @@ compdef _dhruv_completion dhruv`;
 
 function fishScript(targets: CompletionTarget[], commands: string, options: string): string {
   const seen = (name: string) => `'__fish_seen_subcommand_from ${name}'`;
-  const perCommand = targets.filter((target) => target.flags);
   const lines = [`complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'`];
   for (const target of targets.filter((candidate) => candidate.choices)) {
     lines.push(`complete -c dhruv -f -n ${seen(target.name)} -a '${target.choices?.values.join(' ')}'`);
   }
-  for (const target of perCommand) {
+  for (const target of targets) {
     lines.push(`complete -c dhruv ${target.completeFiles ? '-F' : '-f'} -n ${seen(target.name)}`);
-    for (const flag of target.flags ?? []) {
+    for (const flag of target.flags) {
       const names = [flag.short && `-s ${flag.short.slice(1)}`, flag.long && `-l ${flag.long.slice(2)}`].filter(Boolean).join(' ');
       lines.push(`complete -c dhruv -n ${seen(target.name)} ${names}${flag.valueName ? ' -r' : ''} -d ${singleQuoted(flag.description)}`);
     }
   }
-  const legacyCondition = perCommand.length === 0
-    ? 'not __fish_use_subcommand'
-    : `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${perCommand.map((target) => target.name).join(' ')}`;
-  lines.push(`complete -c dhruv -f -n '${legacyCondition}' -a '${options}'`);
+  const otherCommands = `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${targets.map((target) => target.name).join(' ')}`;
+  lines.push(`complete -c dhruv -f -n '${otherCommands}' -a '${options}'`);
   return lines.join('\n');
 }
 
@@ -183,7 +170,7 @@ function fishScript(targets: CompletionTarget[], commands: string, options: stri
 export function completionScript(shell: string): string | undefined {
   const targets = completionTargets();
   const commands = targets.map((target) => target.name).join(' ');
-  const options = sharedOptions().join(' ');
+  const options = programOptions().join(' ');
   switch (shell) {
   case 'bash':
     return bashScript(targets, commands, options);
@@ -196,11 +183,17 @@ export function completionScript(shell: string): string | undefined {
   }
 }
 
+/** The shells the `completion` definition offers, as "a, b, or c". Read lazily: the definition imports this module. */
+function shellChoices(): string {
+  const shells = [...(findBuiltInCommand('completion')?.arguments?.[0]?.choices ?? [])];
+  return shells.length < 2 ? shells.join('') : `${shells.slice(0, -1).join(', ')}, or ${shells[shells.length - 1]}`;
+}
+
 /** The `completion` command: prints the script, or exits 2 for an unsupported shell. */
 export function completion(shell: string = 'bash'): void {
   const script = completionScript(shell);
   if (script === undefined) {
-    console.error(chalk.red(`Unsupported shell "${shell}". Choose bash, zsh, or fish.`));
+    console.error(chalk.red(`Unsupported shell "${shell}". Choose ${shellChoices()}.`));
     process.exitCode = 2;
     return;
   }

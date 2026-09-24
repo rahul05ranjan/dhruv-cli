@@ -1,10 +1,24 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+// Imported only to read Built-in Command facts; the CLI itself runs in a child process.
+import { findBuiltInCommand } from '../src/commands/built-in-commands';
+
+jest.mock('chalk', () => {
+  const identity = (value: unknown) => String(value);
+  const makeChalk = (): unknown => new Proxy(identity, {
+    get: (_target, property: string | symbol) => property === 'level' ? 0 : makeChalk(),
+    apply: (_target, _thisArg, args: unknown[]) => String(args[0]),
+  });
+  const chalk = makeChalk() as Record<string, unknown>;
+  return { __esModule: true, default: chalk, ...chalk };
+});
+jest.mock('ora', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('inquirer', () => ({ __esModule: true, default: { prompt: jest.fn() } }));
 
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(__dirname, '..');
@@ -40,7 +54,9 @@ describe('CLI output contract', () => {
 
     expect(result.stdout).toContain('status');
     expect(result.stdout).toContain('--json');
-    expect(result.stdout).toContain('tests documentation docs component');
+    const generateTypes = findBuiltInCommand('generate')?.arguments?.[0]?.choices ?? [];
+    expect(generateTypes.length).toBeGreaterThan(0);
+    expect(result.stdout).toContain(generateTypes.join(' '));
   });
 
   it('generates valid zsh and fish completion scripts with subcommands', async () => {
@@ -61,6 +77,15 @@ describe('CLI output contract', () => {
     expect(fishResult.stdout).toContain('complete -c dhruv');
     expect(fishResult.stdout).toContain('__fish_seen_subcommand_from generate');
     expect(fishResult.stdout).not.toContain('\u001b[');
+  });
+
+  it('keeps loading Plugin Commands next to the Built-in Commands', async () => {
+    const env = { ...process.env, DHRUV_METRICS_ENABLED: 'false' };
+    const help = await execFileAsync(process.execPath, ['--loader', loaderEntry, sourceEntry, '--help'], { cwd: repoRoot, env });
+    const run = await execFileAsync(process.execPath, ['--loader', loaderEntry, sourceEntry, 'hello-plugin'], { cwd: repoRoot, env });
+
+    expect(help.stdout).toMatch(/completion \[shell\] +Generate shell completion script\r?\n +hello-plugin +Say hello from a plugin/);
+    expect(run.stdout).toContain('Hello from the Dhruv plugin system!');
   });
 
   it('rejects unsupported completion shells', async () => {

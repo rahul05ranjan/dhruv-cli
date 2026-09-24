@@ -3,17 +3,11 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { review } from './commands/review.js';
-import { optimize } from './commands/optimize.js';
-import { securityCheck } from './commands/security-check.js';
-import { generate } from './commands/generate.js';
-import { init } from './commands/init.js';
 import { registerBuiltInCommands } from './commands/register-built-in-commands.js';
 import { createRequire } from 'module';
 import { logger, logCommand, logInfo, logError } from './core/logger.js';
 import { metricsCollector } from './core/metrics.js';
 import { securityManager } from './core/security.js';
-import { commandDescription } from './core/command-catalog.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
@@ -25,9 +19,6 @@ program
   .version(pkg.version);
 
 registerBuiltInCommands(program);
-
-// Legacy source-driven commands: #127 moves these into Built-in Command definitions.
-// Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
 
 program
   .hook('preAction', async (thisCommand) => {
