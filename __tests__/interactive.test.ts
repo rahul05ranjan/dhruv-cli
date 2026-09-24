@@ -3,6 +3,9 @@ import inquirer from 'inquirer';
 import { menu } from '../src/commands/menu';
 import { init } from '../src/commands/init';
 import { listModels } from '../src/core/ai';
+import { explain } from '../src/commands/explain';
+import { suggest } from '../src/commands/suggest';
+import { fix } from '../src/commands/fix';
 
 jest.mock('chalk', () => {
   const identity = (value: unknown) => String(value);
@@ -36,6 +39,10 @@ jest.mock('../src/utils/ux', () => ({
 jest.mock('../src/core/ai', () => ({
   listModels: jest.fn(),
 }));
+
+jest.mock('../src/commands/explain', () => ({ explain: jest.fn() }));
+jest.mock('../src/commands/suggest', () => ({ suggest: jest.fn() }));
+jest.mock('../src/commands/fix', () => ({ fix: jest.fn() }));
 
 jest.mock('inquirer', () => ({
   __esModule: true,
@@ -130,5 +137,51 @@ describe('interactive commands', () => {
       name: 'filter',
       type: 'input',
     });
+  });
+
+  it.each([
+    { name: 'explain', label: 'Explain', message: 'What would you like me to explain?', action: explain },
+    { name: 'suggest', label: 'Suggest', message: 'What would you like suggestions for?', action: suggest },
+    { name: 'fix', label: 'Fix', message: 'Describe the issue you need help fixing:', action: fix },
+  ])('runs $name from the menu with the prompted query', async ({ name, label, message, action }) => {
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockReset();
+    jest.mocked(action).mockClear();
+    prompt
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: name })
+      .mockResolvedValueOnce({ query: 'closures' })
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: 'exit' });
+
+    try {
+      await menu();
+
+      const choices = (prompt.mock.calls[1][0] as unknown as Array<{ choices: Array<{ name: string; value: string }> }>)[0].choices;
+      expect(choices).toContainEqual({ name: label, value: name });
+      expect((prompt.mock.calls[2][0] as unknown as Array<{ name: string; message: string }>)[0]).toMatchObject({ name: 'query', message });
+      expect(action).toHaveBeenCalledWith('closures');
+    } finally {
+      prompt.mockReset();
+    }
+  });
+
+  it('skips a query command when the menu query is empty', async () => {
+    const prompt = jest.mocked(inquirer.prompt);
+    prompt.mockReset();
+    jest.mocked(explain).mockClear();
+    prompt
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: 'explain' })
+      .mockResolvedValueOnce({ query: '' })
+      .mockResolvedValueOnce({ filter: '' })
+      .mockResolvedValueOnce({ cmd: 'exit' });
+
+    try {
+      await menu();
+      expect(explain).not.toHaveBeenCalled();
+    } finally {
+      prompt.mockReset();
+    }
   });
 });
