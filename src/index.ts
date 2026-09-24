@@ -27,31 +27,6 @@ program
 registerBuiltInCommands(program);
 
 // Legacy source-driven commands: #127 moves these into Built-in Command definitions.
-program
-  .command('review <fileOrDir>')
-  .description(commandDescription('review'))
-  .option('--diff', 'Review the current uncommitted git diff')
-  .action((fileOrDir: string, options: Record<string, any>) => review(fileOrDir, options));
-
-program
-  .command('optimize <file>')
-  .description(commandDescription('optimize'))
-  .action(optimize);
-
-program
-  .command('security-check [fileOrDir]')
-  .description(commandDescription('security-check'))
-  .option('--strict', 'Exit with failure when high-confidence findings are detected')
-  .action((fileOrDir: string | undefined, options: Record<string, any>) => securityCheck(fileOrDir, options));
-
-program
-  .command('generate <type> <target>')
-  .description(commandDescription('generate'))
-  .option('--apply', 'Write generated tests to disk (preview is the default)')
-  .option('--output <path>', 'Write generated tests to this path')
-  .option('--overwrite', 'Allow replacing an existing output file')
-  .action((type: string, target: string, options: Record<string, any>) => generate(type, target, options));
-
 // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
 
 program

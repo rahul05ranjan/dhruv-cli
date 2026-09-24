@@ -4,6 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { explain } from '../src/commands/explain';
 import { suggest } from '../src/commands/suggest';
 import { fix } from '../src/commands/fix';
+import { review } from '../src/commands/review';
+import { optimize } from '../src/commands/optimize';
+import { securityCheck } from '../src/commands/security-check';
+import { generate } from '../src/commands/generate';
 import { init } from '../src/commands/init';
 import { status } from '../src/commands/status';
 import { health } from '../src/commands/health';
@@ -25,6 +29,10 @@ jest.mock('chalk', () => {
 jest.mock('../src/commands/explain',() => ({ explain: jest.fn() }));
 jest.mock('../src/commands/suggest', () => ({ suggest: jest.fn() }));
 jest.mock('../src/commands/fix', () => ({ fix: jest.fn() }));
+jest.mock('../src/commands/review', () => ({ review: jest.fn() }));
+jest.mock('../src/commands/optimize', () => ({ optimize: jest.fn() }));
+jest.mock('../src/commands/security-check', () => ({ securityCheck: jest.fn() }));
+jest.mock('../src/commands/generate', () => ({ generate: jest.fn() }));
 jest.mock('../src/commands/init', () => ({ init: jest.fn() }));
 jest.mock('../src/commands/status', () => ({ status: jest.fn() }));
 jest.mock('../src/commands/health', () => ({ health: jest.fn() }));
@@ -36,6 +44,41 @@ const queryCommands = [
   { name: 'explain', action: explain, example: 'dhruv explain "What is async/await?"' },
   { name: 'suggest', action: suggest, example: 'dhruv suggest "React performance optimization"' },
   { name: 'fix', action: fix, example: 'dhruv fix "CORS error in Express.js"' },
+];
+
+const sourceCommands = [
+  {
+    name: 'review',
+    usage: '<fileOrDir>',
+    options: ['--diff'],
+    argv: ['src/app.ts', '--diff'],
+    action: review,
+    expected: ['src/app.ts', expect.objectContaining({ diff: true })],
+  },
+  {
+    name: 'optimize',
+    usage: '<file>',
+    options: [],
+    argv: ['package.json'],
+    action: optimize,
+    expected: ['package.json'],
+  },
+  {
+    name: 'security-check',
+    usage: '[fileOrDir]',
+    options: ['--strict'],
+    argv: ['src', '--strict'],
+    action: securityCheck,
+    expected: ['src', expect.objectContaining({ strict: true })],
+  },
+  {
+    name: 'generate',
+    usage: '<type> <target>',
+    options: ['--apply', '--output <path>', '--overwrite'],
+    argv: ['tests', 'src/app.ts', '--apply', '--output', 'out.test.ts', '--overwrite'],
+    action: generate,
+    expected: ['tests', 'src/app.ts', expect.objectContaining({ apply: true, output: 'out.test.ts', overwrite: true })],
+  },
 ];
 
 const diagnosticCommands = [
@@ -79,7 +122,26 @@ describe('Built-in Command line adapter', () => {
     expect(action).toHaveBeenCalledWith('why is it slow?');
   });
 
-  it.each(diagnosticCommands)('documents $name', ({ name, usage, help }) => {
+  it.each(sourceCommands)('documents $name with its source arguments and options', ({ name, usage, options }) => {
+    const help = helpFor(createProgram(), name);
+
+    expect(help).toContain(`Usage: dhruv ${name} [options] ${usage}`);
+    for (const flag of options) expect(help).toContain(flag);
+  });
+
+  it.each(sourceCommands)('runs $name with its source arguments and options from the command line', async ({ name, argv, action, expected }) => {
+    await createProgram().parseAsync(['node', 'dhruv', name, ...argv]);
+
+    expect(action as unknown as jest.Mock).toHaveBeenCalledWith(...expected);
+  });
+
+  it('runs security-check on the current directory when no path is given', async () => {
+    await createProgram().parseAsync(['node', 'dhruv', 'security-check']);
+
+    expect(securityCheck).toHaveBeenCalledWith('.', expect.anything());
+  });
+
+  it.each(diagnosticCommands)('documents $name',({ name, usage, help }) => {
     const text = helpFor(createProgram(), name);
 
     expect(text).toContain(usage);
@@ -159,6 +221,18 @@ describe('Built-in Command completion adapter', () => {
     expect(offered).not.toContain('--strict');
     expect(offered).not.toContain('--diff');
     expect(bashCompletions(name, 'question', '')).not.toContain('review');
+  });
+
+  itWithBash.each([
+    { name: 'review', words: ['src'], own: ['--diff'], foreign: ['--strict', '--apply'] },
+    { name: 'optimize', words: ['package.json'], own: [], foreign: ['--diff', '--strict', '--apply'] },
+    { name: 'security-check', words: ['src'], own: ['--strict'], foreign: ['--diff', '--apply'] },
+    { name: 'generate', words: ['tests', 'src/app.ts'], own: ['--apply', '--output', '--overwrite'], foreign: ['--diff', '--strict'] },
+  ])('offers only the options $name accepts', ({ name, words, own, foreign }) => {
+    const offered = bashCompletions(name, ...words, '--');
+
+    expect(offered).toEqual(expect.arrayContaining([...own, '--help', '--json']));
+    for (const flag of foreign) expect(offered).not.toContain(flag);
   });
 
   itWithBash.each([

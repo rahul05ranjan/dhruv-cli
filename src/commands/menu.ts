@@ -68,40 +68,6 @@ export async function menu() {
           await runFromMenu(definition);
         } else switch (cmd) {
         // Legacy source-driven commands: #127 moves these into Built-in Command definitions.
-        case 'review': {
-          const { fileOrDir } = await inquirer.prompt([
-            { type: 'input', name: 'fileOrDir', message: 'Enter file or directory path to review:' }
-          ]);
-          if (fileOrDir) await review(fileOrDir);
-          break;
-        }
-        case 'optimize': {
-          const { file } = await inquirer.prompt([
-            { type: 'input', name: 'file', message: 'Enter file path to optimize:' }
-          ]);
-          if (file) await optimize(file);
-          break;
-        }
-        case 'security-check': {
-          const { fileOrDir } = await inquirer.prompt([
-            { type: 'input', name: 'fileOrDir', message: 'Enter file or directory path to check (or press enter for current directory):', default: '.' }
-          ]);
-          await securityCheck(fileOrDir);
-          break;
-        }
-        case 'generate': {
-          const answers = await inquirer.prompt([
-            { 
-              type: 'list', 
-              name: 'type', 
-              message: 'What would you like to generate?',
-              choices: ['tests', 'documentation', 'docs', 'component']
-            },
-            { type: 'input', name: 'target', message: 'Enter target file path:' }
-          ]);
-          if (answers.target) await generate(answers.type, answers.target);
-          break;
-        }
         // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
         default:
           console.log(themed(`You selected: ${cmd}`, 'accent'));
