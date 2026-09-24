@@ -152,12 +152,41 @@ describe.each(definitions)('Built-in Command %s', (name, definition) => {
     expect(bashCompletions(name, '-').sort()).toEqual(expectedCompletionFlags(definition));
   });
 
+  itWithBash('is offered by bash completion with its argument choices and file paths', () => {
+    const args = definition.arguments ?? [];
+    args.forEach((argument, index) => {
+      const preceding = args.slice(0, index).map((earlier) => earlier.choices?.[0] ?? `${earlier.name}-value`);
+      if (argument.choices) expect(bashCompletions(name, ...preceding, '')).toEqual([...argument.choices]);
+      if (argument.completeFiles) expect(bashCompletions(name, ...preceding, 'package.j')).toContain('package.json');
+    });
+  });
+
   it('is offered by zsh completion with exactly its options', () => {
     const script = completionScript('zsh') ?? '';
     const branch = script.split('\n').find((line) => line.trim().startsWith(`${name})`)) ?? '';
 
     expect(script).toMatch(new RegExp(`commands=\\(.*\\b${name}\\b.*\\)`));
     expect([...branch.matchAll(/'(-{1,2}[\w-]+)\[/g)].map((match) => match[1]).sort()).toEqual(expectedCompletionFlags(definition));
+  });
+
+  it('is offered by zsh completion with its argument choices and file paths', () => {
+    const branch = (completionScript('zsh') ?? '').split('\n').find((line) => line.trim().startsWith(`${name})`)) ?? '';
+    (definition.arguments ?? []).forEach((argument, index) => {
+      if (argument.choices) expect(branch).toContain(`'${index + 1}:${argument.name}:(${argument.choices.join(' ')})'`);
+    });
+    expect(branch.includes(`'*:file:_files'`)).toBe((definition.arguments ?? []).some((argument) => argument.completeFiles));
+  });
+
+  it('is offered by fish completion with its argument choices only at their position', () => {
+    const lines = (completionScript('fish') ?? '').split('\n');
+    const seen = `__fish_seen_subcommand_from ${name}`;
+    (definition.arguments ?? []).forEach((argument, index) => {
+      if (!argument.choices) return;
+      const choiceLines = lines.filter((line) => line.includes(seen) && line.endsWith(`-a '${argument.choices?.join(' ')}'`));
+      expect(choiceLines).toEqual([expect.stringContaining(`(count (commandline -opc)) -eq ${index + 2}`)]);
+    });
+    const fileLine = lines.find((line) => line.startsWith('complete -c dhruv -') && line.includes(`'${seen}'`) && !/ -[sla] /.test(line));
+    expect(fileLine).toContain((definition.arguments ?? []).some((argument) => argument.completeFiles) ? ' -F ' : ' -f ');
   });
 
   it('is offered by fish completion with exactly its options', () => {

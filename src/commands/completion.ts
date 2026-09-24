@@ -20,6 +20,8 @@ interface CompletionTarget {
   name: string;
   choices?: { position: number; name: string; values: readonly string[] };
   completeFiles: boolean;
+  /** 1-based position of the first argument that takes file paths. */
+  filesFrom?: number;
   flags: CompletionFlag[];
 }
 
@@ -34,12 +36,14 @@ function parseFlags(option: BuiltInOption): CompletionFlag {
   };
 }
 
-function argumentFacts(args: readonly BuiltInArgument[] = []): Pick<CompletionTarget, 'choices' | 'completeFiles'> {
+function argumentFacts(args: readonly BuiltInArgument[] = []): Pick<CompletionTarget, 'choices' | 'completeFiles' | 'filesFrom'> {
   const position = args.findIndex((argument) => argument.choices);
   const withChoices = args[position];
+  const filesIndex = args.findIndex((argument) => argument.completeFiles);
   return {
     choices: withChoices?.choices ? { position: position + 1, name: withChoices.name, values: withChoices.choices } : undefined,
-    completeFiles: args.some((argument) => argument.completeFiles),
+    completeFiles: filesIndex !== -1,
+    filesFrom: filesIndex === -1 ? undefined : filesIndex + 1,
   };
 }
 
@@ -70,9 +74,9 @@ function bashScript(targets: CompletionTarget[], commands: string, options: stri
     COMPREPLY=( $(compgen -W "${target.choices?.values.join(' ')}" -- "$cur") )
     return 0
   fi`).join('');
-  const fileCommands = targets.filter((target) => target.completeFiles && !target.choices);
+  const fileCommands = targets.filter((target) => target.filesFrom !== undefined);
   const fileBlock = fileCommands.length === 0 ? '' : `
-  if [[ "$cur" != -* ]] && [[ ${fileCommands.map((target) => `"$prev" == "${target.name}"`).join(' || ')} ]]; then
+  if [[ "$cur" != -* ]] && [[ ${fileCommands.map((target) => `( "\${COMP_WORDS[1]}" == "${target.name}" && $COMP_CWORD -gt ${target.filesFrom} )`).join(' || ')} ]]; then
     COMPREPLY=( $(compgen -f -- "$cur") )
     return 0
   fi`;
@@ -83,6 +87,9 @@ ${targets.map((target) => `      ${target.name})
         commands=""
         options="${flagWords(target.flags)}"
         ;;`).join('\n')}
+      *)
+        commands=""
+        ;;
     esac
   fi`;
 
@@ -152,7 +159,8 @@ function fishScript(targets: CompletionTarget[], commands: string, options: stri
   const seen = (name: string) => `'__fish_seen_subcommand_from ${name}'`;
   const lines = [`complete -c dhruv -f -n '__fish_use_subcommand' -a '${commands}'`];
   for (const target of targets.filter((candidate) => candidate.choices)) {
-    lines.push(`complete -c dhruv -f -n ${seen(target.name)} -a '${target.choices?.values.join(' ')}'`);
+    const atPosition = `'__fish_seen_subcommand_from ${target.name}; and test (count (commandline -opc)) -eq ${(target.choices?.position ?? 0) + 1}'`;
+    lines.push(`complete -c dhruv -f -n ${atPosition} -a '${target.choices?.values.join(' ')}'`);
   }
   for (const target of targets) {
     lines.push(`complete -c dhruv ${target.completeFiles ? '-F' : '-f'} -n ${seen(target.name)}`);

@@ -229,6 +229,13 @@ describe('Built-in Command completion adapter', () => {
     expect(offered).not.toContain(name === 'health' ? '--raw' : '--details');
   });
 
+  itWithBash('offers a Plugin Command only program-level options, not command names', () => {
+    const offered = bashCompletions('hello-plugin', '');
+
+    expect(offered).toEqual(expect.arrayContaining(['--help', '--version']));
+    expect(offered).not.toContain('explain');
+  });
+
   itWithBash.each([
     { name: 'review', expected: ['--diff'] },
     { name: 'generate', expected: ['--apply', '--output', '--overwrite'] },
