@@ -66,6 +66,61 @@ describe('release workflow requirements', () => {
       });
     expect(publishers).toEqual(['release.yml']);
   });
+
+  it('gives semantic-release exactly one config, which commits the changelog and version back', () => {
+    // semantic-release reads the first config it finds, in this order, and ignores the rest.
+    const candidates = ['.releaserc', '.releaserc.json', '.releaserc.yaml', '.releaserc.yml', '.releaserc.js',
+      '.releaserc.cjs', '.releaserc.mjs', 'release.config.js', 'release.config.cjs', 'release.config.mjs'];
+    const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
+    expect(pkg.release).toBeUndefined();
+    expect(candidates.filter(name => existsSync(resolve(root, name)))).toEqual(['.releaserc.json']);
+
+    const config = JSON.parse(readFileSync(resolve(root, '.releaserc.json'), 'utf8'));
+    const plugins = (config.plugins as Array<string | [string, unknown]>).map(plugin =>
+      (Array.isArray(plugin) ? plugin[0] : plugin));
+    expect(plugins).toEqual(expect.arrayContaining(['@semantic-release/changelog', '@semantic-release/git']));
+  });
+});
+
+describe('release decision for pull requests', () => {
+  const policy = workflow('contribution.yml');
+  const step = Object.values(policy.jobs).flatMap(job => job.steps as Array<Step & { name?: string }>)
+    .find(candidate => candidate.name === 'Require a release decision for shipped code');
+
+  /** Runs the policy step's github-script against a pull request, returning the failure message, if any. */
+  async function decide(title: string, files: string[], labels: string[] = []): Promise<string | undefined> {
+    let failure: string | undefined;
+    const github = { rest: { pulls: { listFiles: {} } }, paginate: async () => files.map(filename => ({ filename })) };
+    const context = { repo: { owner: 'o', repo: 'r' }, payload: { pull_request: { number: 1, title, labels: labels.map(name => ({ name })) } } };
+    const core = { setFailed: (message: string) => { failure = message; }, info: () => undefined };
+    const run = new Function('github', 'context', 'core', `return (async () => {\n${step?.with?.script}\n})();`);
+    await run(github, context, core);
+    return failure;
+  }
+
+  it('re-checks when the title or labels change', () => {
+    const types = (policy.on.pull_request_target as { types: string[] }).types;
+    expect(types).toEqual(expect.arrayContaining(['edited', 'labeled', 'unlabeled']));
+  });
+
+  it.each([
+    ['refactor(commands): deepen definitions', ['src/commands/menu.ts']],
+    ['chore: tidy', ['src/index.ts', 'README.md']],
+  ])('fails "%s" that changes shipped code without a release decision', async (title, files) => {
+    expect(await decide(title, files)).toMatch(/no-release/);
+  });
+
+  it.each([
+    ['fix(completion): complete files', ['src/commands/completion.ts'], []],
+    ['feat: add command', ['src/index.ts'], []],
+    ['perf: faster startup', ['src/index.ts'], []],
+    ['refactor!: drop legacy flags', ['src/index.ts'], []],
+    ['refactor(commands): deepen definitions', ['src/commands/menu.ts'], ['no-release']],
+    ['docs: explain completion', ['README.md', 'docs/adr/0001-x.md'], []],
+    ['test: cover menu', ['__tests__/menu.test.ts'], []],
+  ])('passes "%s"', async (title, files, labels) => {
+    expect(await decide(title, files, labels)).toBeUndefined();
+  });
 });
 
 describe('workflow trigger boundaries', () => {

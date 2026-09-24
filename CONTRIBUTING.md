@@ -53,6 +53,13 @@ Thank you for your interest in contributing! 🎉
 - Example: `fix: update version to 1.1.3 and improve streaming response handling`
 - PR titles are checked automatically in CI. See `.github/workflows/contribution.yml` for details.
 
+### Releases
+- PRs are squash-merged, so the PR title becomes the commit that semantic-release reads.
+- Only `feat` (minor), `fix`, `perf` (patch) and breaking changes (`type!:`) publish a new version. `refactor`, `chore`, `docs`, `style`, `test` and `ci` never do.
+- If a PR changes `src/` under a non-releasing type, CI fails until you decide:
+  - users will see the change → retitle it `fix:` or `feat:`;
+  - they won't (a pure refactor) → add the `no-release` label.
+
 ## Code of Conduct
 - Be respectful and inclusive. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
