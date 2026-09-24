@@ -80,6 +80,17 @@ describe('release workflow requirements', () => {
       (Array.isArray(plugin) ? plugin[0] : plugin));
     expect(plugins).toEqual(expect.arrayContaining(['@semantic-release/changelog', '@semantic-release/git']));
   });
+
+  it('publishes the GitHub release without uploading build or docs files as assets', () => {
+    // Assets upload flattened to their file names; dist/ and docs/ repeat names
+    // (index.html, metrics.js), GitHub rejects the duplicate and the release stays a draft.
+    // npm is the distribution channel, so the GitHub release carries notes only.
+    const config = JSON.parse(readFileSync(resolve(root, '.releaserc.json'), 'utf8'));
+    const github = (config.plugins as Array<string | [string, { assets?: unknown }]>)
+      .find(plugin => (Array.isArray(plugin) ? plugin[0] : plugin) === '@semantic-release/github');
+    expect(github).toBeDefined();
+    expect(Array.isArray(github) ? github[1].assets : undefined).toBeUndefined();
+  });
 });
 
 describe('release decision for pull requests', () => {
