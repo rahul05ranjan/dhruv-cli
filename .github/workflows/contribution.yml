@@ -6,7 +6,7 @@ on:
   # trusted base branch keeps the policy current for existing Dependabot PRs.
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -45,6 +45,33 @@ jobs:
             doesn't start with an uppercase character.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The squash-merge commit takes the PR title, and semantic-release only
+      # publishes feat, fix, perf and breaking (`!`) commits. A PR that changes
+      # shipped code under any other type must opt out explicitly with the
+      # `no-release` label, so user-visible fixes are not merged unreleased.
+      - name: Require a release decision for shipped code
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const match = /^(\w+)(?:\([^)]*\))?(!)?:/.exec(pr.title);
+            if (!match || ['feat', 'fix', 'perf'].includes(match[1]) || match[2]) return;
+            if (pr.labels.some(label => label.name === 'no-release')) {
+              core.info('Labelled no-release: merging without a release.');
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100,
+            });
+            const shipped = files.map(file => file.filename).filter(name => name.startsWith('src/'));
+            if (shipped.length === 0) return;
+            core.setFailed([
+              `"${match[1]}" does not trigger a release, but this PR changes shipped code (${shipped.slice(0, 5).join(', ')}${shipped.length > 5 ? ', …' : ''}).`,
+              'If users will see the change, retitle the PR as fix: or feat:.',
+              'If they will not (a pure refactor), add the no-release label.',
+            ].join('\n'));
 
       - name: Apply PR size label
         uses: pascalgn/size-label-action@v0.5.0
