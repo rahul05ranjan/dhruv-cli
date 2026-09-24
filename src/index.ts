@@ -8,18 +8,12 @@ import { optimize } from './commands/optimize.js';
 import { securityCheck } from './commands/security-check.js';
 import { generate } from './commands/generate.js';
 import { init } from './commands/init.js';
-import { status } from './commands/status.js';
-import { health } from './commands/health.js';
-import { metrics } from './commands/metrics.js';
-import { detectProjectType } from './utils/projectType.js';
-import { menu } from './commands/menu.js';
 import { registerBuiltInCommands } from './commands/register-built-in-commands.js';
 import { createRequire } from 'module';
 import { logger, logCommand, logInfo, logError } from './core/logger.js';
 import { metricsCollector } from './core/metrics.js';
 import { securityManager } from './core/security.js';
 import { commandDescription } from './core/command-catalog.js';
-import { completion } from './commands/completion.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
 
@@ -59,41 +53,6 @@ program
   .action((type: string, target: string, options: Record<string, any>) => generate(type, target, options));
 
 // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
-program
-  .command('init')
-  .description(commandDescription('init'))
-  .action(init);
-
-program
-  .command('status')
-  .description(commandDescription('status'))
-  .action(status);
-
-program
-  .command('health')
-  .description(commandDescription('health'))
-  .option('--details', 'Show every health check and diagnostic detail')
-  .action((options: Record<string, any>) => health(options));
-
-program
-  .command('metrics')
-  .description(commandDescription('metrics'))
-  .option('--raw', 'Export raw Prometheus metrics')
-  .option('--reset', 'Clear persisted local metrics')
-  .action((options: Record<string, any>) => metrics(options));
-
-program
-  .command('project-type')
-  .description(commandDescription('project-type'))
-  .action(() => {
-    const type = detectProjectType();
-    console.log(chalk.blue(`Detected project type: ${type}`));
-  });
-
-program
-  .command('menu')
-  .description(commandDescription('menu'))
-  .action(menu);
 
 program
   .hook('preAction', async (thisCommand) => {
@@ -153,13 +112,6 @@ async function loadPlugins(program: unknown) {
     process.exit(1);
   }
 })();
-
-// Autocomplete: Generate shell completion scripts
-program
-  .command('completion')
-  .description(commandDescription('completion'))
-  .argument('[shell]', 'shell type (bash|zsh|fish)', 'bash')
-  .action(completion);
 
 process.on('uncaughtException', async (err) => {
   const ux = await import('./utils/ux.js');

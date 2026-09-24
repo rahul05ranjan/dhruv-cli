@@ -5,10 +5,6 @@ import { optimize } from './optimize.js';
 import { securityCheck } from './security-check.js';
 import { generate } from './generate.js';
 import { init } from './init.js';
-import { status } from './status.js';
-import { health } from './health.js';
-import { metrics } from './metrics.js';
-import { detectProjectType } from '../utils/projectType.js';
 import chalk from 'chalk';
 import { legacyCommandCatalog } from '../core/command-catalog.js';
 import { builtInCommands, findBuiltInCommand, type BuiltInCommand } from './built-in-commands.js';
@@ -107,27 +103,6 @@ export async function menu() {
           break;
         }
         // Legacy diagnostics and setup commands: #128 moves these into Built-in Command definitions.
-        case 'init': {
-          await init();
-          break;
-        }
-        case 'project-type': {
-          const type = detectProjectType();
-          console.log(chalk.blue(`Detected project type: ${type}`));
-          break;
-        }
-        case 'status':
-          await status();
-          break;
-        case 'health':
-          await health();
-          break;
-        case 'metrics':
-          await metrics();
-          break;
-        case 'completion':
-          console.log(themed('Run `dhruv completion <bash|zsh|fish>` to install shell completion.', 'accent'));
-          break;
         default:
           console.log(themed(`You selected: ${cmd}`, 'accent'));
         }
