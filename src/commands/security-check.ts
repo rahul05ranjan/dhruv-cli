@@ -1,6 +1,7 @@
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
-import { loadSource } from '../core/source-bundle.js';
+import { ingestSource } from '../core/source-ingestion.js';
+import { presentSourceOutcome } from '../core/command-presentation.js';
 
 function redactSensitiveContent(content: string): string {
   return content
@@ -76,15 +77,15 @@ export interface SecurityCheckOptions {
 }
 
 export async function securityCheck(fileOrDir: string = '.', options: SecurityCheckOptions = {}) {
-  const bundle = loadSource(fileOrDir);
-  if (!bundle) return;
+  const outcome = ingestSource(fileOrDir);
+  if (!presentSourceOutcome('security-check', outcome)) return;
 
   const findings: SecurityFinding[] = [];
-  for (const file of bundle.files) {
+  for (const file of outcome.files) {
     findings.push(...findHighConfidenceFindings(file.content, file.path));
   }
 
-  const safeCode = redactSensitiveContent(bundle.promptContent);
+  const safeCode = redactSensitiveContent(outcome.promptContent);
   const findingSummary = findings.length === 0
     ? 'none'
     : findings.map((finding) => `- ${finding.severity} in ${finding.file} at line ${finding.line}: ${finding.description}; remediation: ${finding.remediation}`).join('\n');

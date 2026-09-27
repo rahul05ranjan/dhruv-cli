@@ -332,6 +332,33 @@ describe('file analysis commands', () => {
     process.exitCode = 0;
   });
 
+  it('renders structured JSON failure and exits with code 1 when security-check target does not exist in JSON mode', async () => {
+    saveConfig({ responseFormat: 'json' });
+    const output: string[] = [];
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    try {
+      await securityCheck(nonExistent);
+      expect(process.exitCode).toBe(1);
+      expect(client.requests).toHaveLength(0);
+      const parsed = JSON.parse(output.join('')) as Record<string, unknown>;
+      expect(parsed).toEqual({
+        ok: false,
+        command: 'security-check',
+        error: `Path "${nonExistent}" does not exist or could not be read.`,
+      });
+    } finally {
+      writeSpy.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
   it('exits with code 1 and skips AI call when generate target does not exist', async () => {
     process.exitCode = 0;
     const nonExistent = path.join(root, 'nonexistent.ts');
@@ -343,6 +370,33 @@ describe('file analysis commands', () => {
     process.exitCode = 0;
   });
 
+  it('renders structured JSON failure and exits with code 1 when generate target does not exist in JSON mode', async () => {
+    saveConfig({ responseFormat: 'json' });
+    const output: string[] = [];
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    try {
+      await generate('tests', nonExistent);
+      expect(process.exitCode).toBe(1);
+      expect(client.requests).toHaveLength(0);
+      const parsed = JSON.parse(output.join('')) as Record<string, unknown>;
+      expect(parsed).toEqual({
+        ok: false,
+        command: 'generate',
+        error: `Path "${nonExistent}" does not exist or could not be read.`,
+      });
+    } finally {
+      writeSpy.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
   it('exits with code 1 and skips AI call when optimize target does not exist', async () => {
     process.exitCode = 0;
     const nonExistent = path.join(root, 'nonexistent.ts');
@@ -352,6 +406,33 @@ describe('file analysis commands', () => {
     expect(process.exitCode).toBe(1);
     expect(client.requests).toHaveLength(0);
     process.exitCode = 0;
+  });
+
+  it('renders structured JSON failure and exits with code 1 when optimize target does not exist in JSON mode', async () => {
+    saveConfig({ responseFormat: 'json' });
+    const output: string[] = [];
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+    process.exitCode = 0;
+    const nonExistent = path.join(root, 'nonexistent.ts');
+
+    try {
+      await optimize(nonExistent);
+      expect(process.exitCode).toBe(1);
+      expect(client.requests).toHaveLength(0);
+      const parsed = JSON.parse(output.join('')) as Record<string, unknown>;
+      expect(parsed).toEqual({
+        ok: false,
+        command: 'optimize',
+        error: `Path "${nonExistent}" does not exist or could not be read.`,
+      });
+    } finally {
+      writeSpy.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
   });
 });
 
