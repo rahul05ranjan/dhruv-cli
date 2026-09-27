@@ -1,3 +1,10 @@
+## [1.8.8](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.7...v1.8.8) (2026-09-27)
+
+
+### Bug Fixes
+
+* **diagnostics:** align health and status readiness and exit code semantics ([b46399b](https://github.com/rahul05ranjan/dhruv-cli/commit/b46399bf66103a83f59d4932a96115902f81386f)), closes [#125](https://github.com/rahul05ranjan/dhruv-cli/issues/125) [#141](https://github.com/rahul05ranjan/dhruv-cli/issues/141) [#124](https://github.com/rahul05ranjan/dhruv-cli/issues/124) [#140](https://github.com/rahul05ranjan/dhruv-cli/issues/140)
+
 ## [1.8.7](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.6...v1.8.7) (2026-09-24)
 
 
