@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.11.0...v1.12.0) (2026-09-27)
+
+
+### Features
+
+* **agent:** autonomous self-healing command execution loop ([#150](https://github.com/rahul05ranjan/dhruv-cli/issues/150)) ([#154](https://github.com/rahul05ranjan/dhruv-cli/issues/154)) ([b3117df](https://github.com/rahul05ranjan/dhruv-cli/commit/b3117df3ef4e8e07e56961f5bae8e5374aac1479)), closes [#151](https://github.com/rahul05ranjan/dhruv-cli/issues/151) [#152](https://github.com/rahul05ranjan/dhruv-cli/issues/152) [#153](https://github.com/rahul05ranjan/dhruv-cli/issues/153)
+
 # [1.11.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.10.0...v1.11.0) (2026-09-27)
 
 
