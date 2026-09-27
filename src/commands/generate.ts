@@ -4,7 +4,8 @@ import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { printError, printSuccess, printInfo } from '../utils/ux.js';
 import { loadConfig } from '../config/config.js';
-import { loadSource } from '../core/source-bundle.js';
+import { ingestSource } from '../core/source-ingestion.js';
+import { presentSourceOutcome } from '../core/command-presentation.js';
 
 function getLanguageForFile(target: string): { name: string; testFramework: string } {
   const ext = path.extname(target).toLowerCase();
@@ -53,10 +54,10 @@ export interface GenerateOptions {
 }
 
 export async function generate(type: string, target: string, options: GenerateOptions = {}) {
-  const bundle = loadSource(target);
-  if (!bundle) return;
+  const outcome = ingestSource(target);
+  if (!presentSourceOutcome('generate', outcome)) return;
 
-  const content = bundle.promptContent;
+  const content = outcome.promptContent;
 
   await runCommand({
     name: 'generate',

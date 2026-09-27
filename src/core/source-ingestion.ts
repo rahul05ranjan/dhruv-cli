@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { printError, printInfo } from '../utils/ux.js';
 
 export const CODE_FILE = /\.(js|ts|jsx|tsx|py|java|cpp|c|go|rs|rb|php)$/;
 
@@ -32,45 +31,75 @@ export interface SourceBundle {
   isDiff: boolean;
   capped: boolean;
   promptContent: string;
+  maxFiles?: number;
 }
 
-export interface LoadSourceOptions {
+export type SourceFailureReason =
+  | 'not-found'
+  | 'unsupported-target'
+  | 'no-code-files'
+  | 'empty-diff'
+  | 'diff-error';
+
+export interface SourceSuccessOutcome extends SourceBundle {
+  ok: true;
+}
+
+export interface SourceFailureOutcome {
+  ok: false;
+  target: string;
+  reason: SourceFailureReason;
+  message: string;
+}
+
+export type SourceOutcome = SourceSuccessOutcome | SourceFailureOutcome;
+
+export interface IngestSourceOptions {
   diff?: boolean;
   maxFiles?: number;
 }
 
-export function loadSource(target: string, options: LoadSourceOptions = {}): SourceBundle | null {
+export type LoadSourceOptions = IngestSourceOptions;
+
+export function ingestSource(target: string, options: IngestSourceOptions = {}): SourceOutcome {
   if (options.diff) {
-    return loadGitDiff(target);
+    return ingestGitDiff(target);
   }
 
   let stat: fs.Stats;
   try {
     stat = fs.statSync(target);
   } catch {
-    printError(`Path "${target}" does not exist or could not be read.`);
-    process.exitCode = 1;
-    return null;
+    return {
+      ok: false,
+      target,
+      reason: 'not-found',
+      message: `Path "${target}" does not exist or could not be read.`,
+    };
   }
 
   if (stat.isFile()) {
-    return loadSingleFile(target);
+    return ingestSingleFile(target);
   }
 
   if (stat.isDirectory()) {
-    return loadDirectory(target, options.maxFiles ?? 10);
+    return ingestDirectory(target, options.maxFiles ?? 10);
   }
 
-  printError(`Path "${target}" is neither a file nor a directory.`);
-  process.exitCode = 1;
-  return null;
+  return {
+    ok: false,
+    target,
+    reason: 'unsupported-target',
+    message: `Path "${target}" is neither a file nor a directory.`,
+  };
 }
 
-function loadSingleFile(target: string): SourceBundle | null {
+function ingestSingleFile(target: string): SourceOutcome {
   try {
     const content = fs.readFileSync(target, 'utf-8');
     const relativePath = path.basename(target);
     return {
+      ok: true,
       target,
       files: [{ path: relativePath, content }],
       isDiff: false,
@@ -78,13 +107,16 @@ function loadSingleFile(target: string): SourceBundle | null {
       promptContent: content,
     };
   } catch {
-    printError(`Path "${target}" does not exist or could not be read.`);
-    process.exitCode = 1;
-    return null;
+    return {
+      ok: false,
+      target,
+      reason: 'not-found',
+      message: `Path "${target}" does not exist or could not be read.`,
+    };
   }
 }
 
-function loadDirectory(dir: string, maxFiles: number): SourceBundle | null {
+function ingestDirectory(dir: string, maxFiles: number): SourceOutcome {
   const collectedFiles: SourceFile[] = [];
   let capped = false;
 
@@ -127,13 +159,12 @@ function loadDirectory(dir: string, maxFiles: number): SourceBundle | null {
   collect(dir);
 
   if (collectedFiles.length === 0) {
-    printError(`No code files found in directory "${dir}".`);
-    process.exitCode = 1;
-    return null;
-  }
-
-  if (capped) {
-    printInfo(`Note: Directory review is capped at the first ${maxFiles} source files.`);
+    return {
+      ok: false,
+      target: dir,
+      reason: 'no-code-files',
+      message: `No code files found in directory "${dir}".`,
+    };
   }
 
   let promptContent = '';
@@ -142,15 +173,17 @@ function loadDirectory(dir: string, maxFiles: number): SourceBundle | null {
   }
 
   return {
+    ok: true,
     target: dir,
     files: collectedFiles,
     isDiff: false,
     capped,
+    maxFiles,
     promptContent,
   };
 }
 
-function loadGitDiff(fileOrDir: string): SourceBundle | null {
+function ingestGitDiff(fileOrDir: string): SourceOutcome {
   const root = fs.existsSync(fileOrDir) && fs.statSync(fileOrDir).isDirectory() ? fileOrDir : path.dirname(fileOrDir);
   try {
     const diff = execFileSync('git', ['diff', '--no-ext-diff', '--unified=80', '--'], {
@@ -160,12 +193,16 @@ function loadGitDiff(fileOrDir: string): SourceBundle | null {
     });
 
     if (!diff.trim()) {
-      printError(`No uncommitted changes found in "${fileOrDir}".`);
-      process.exitCode = 1;
-      return null;
+      return {
+        ok: false,
+        target: fileOrDir,
+        reason: 'empty-diff',
+        message: `No uncommitted changes found in "${fileOrDir}".`,
+      };
     }
 
     return {
+      ok: true,
       target: fileOrDir,
       files: [],
       isDiff: true,
@@ -173,8 +210,11 @@ function loadGitDiff(fileOrDir: string): SourceBundle | null {
       promptContent: diff,
     };
   } catch {
-    printError(`Could not read a git diff for "${fileOrDir}".`);
-    process.exitCode = 1;
-    return null;
+    return {
+      ok: false,
+      target: fileOrDir,
+      reason: 'diff-error',
+      message: `Could not read a git diff for "${fileOrDir}".`,
+    };
   }
 }

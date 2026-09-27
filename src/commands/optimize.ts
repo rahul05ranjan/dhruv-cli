@@ -2,7 +2,9 @@ import path from 'path';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { printError } from '../utils/ux.js';
-import { loadSource } from '../core/source-bundle.js';
+import { loadConfig } from '../config/config.js';
+import { ingestSource } from '../core/source-ingestion.js';
+import { presentSourceOutcome } from '../core/command-presentation.js';
 
 function optimizationType(file: string): string {
   const ext = path.extname(file).toLowerCase();
@@ -17,15 +19,20 @@ function optimizationType(file: string): string {
 
 export async function optimize(file: string) {
   if (!file || file.trim().length === 0) {
-    printError('Please provide a file path to optimize.');
-    process.exitCode = 1;
+    if (loadConfig().responseFormat === 'json') {
+      process.exitCode = 1;
+      process.stdout.write(`${JSON.stringify({ ok: false, command: 'optimize', error: 'Please provide a file path to optimize.' })}\n`);
+    } else {
+      printError('Please provide a file path to optimize.');
+      process.exitCode = 1;
+    }
     return;
   }
 
-  const bundle = loadSource(file);
-  if (!bundle) return;
+  const outcome = ingestSource(file);
+  if (!presentSourceOutcome('optimize', outcome)) return;
 
-  const content = bundle.promptContent;
+  const content = outcome.promptContent;
   const type = optimizationType(file);
   await runCommand({
     name: 'optimize',
@@ -39,4 +46,3 @@ export async function optimize(file: string) {
     footer: `🔍 Want a code review? Try: dhruv review ${file}`,
   });
 }
-
