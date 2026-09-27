@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.10.0...v1.11.0) (2026-09-27)
+
+
+### Features
+
+* **routing:** display Laya Intent Model indicator in terminal on dispatch ([#149](https://github.com/rahul05ranjan/dhruv-cli/issues/149)) ([f4baf9f](https://github.com/rahul05ranjan/dhruv-cli/commit/f4baf9fed96a762f6d6ed99e4a6cca0c960304c8))
+
 # [1.10.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.9.0...v1.10.0) (2026-09-27)
 
 
