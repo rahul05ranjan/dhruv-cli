@@ -62,7 +62,12 @@ export async function dispatchRootQuery(
     console.log(chalk.cyan(`⚡ Routed via Laya Intent Model → `) + chalk.bold(routing.command) + chalk.cyan(targetInfo) + chalk.dim(` (${percentage}% confidence)\n`));
   }
 
-  return targetCmd.run(args, options);
+  const mergedOptions: BuiltInCommandOptions = {
+    ...routing.options,
+    ...options,
+  };
+
+  return targetCmd.run(args, mergedOptions);
 }
 
 function registerBuiltInCommand(program: Command, definition: BuiltInCommand): void {

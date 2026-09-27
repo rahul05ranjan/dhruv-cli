@@ -92,18 +92,29 @@ export function generateSimpleDiff(
   return diffLines.join('\n');
 }
 
-export const defaultFsAdapter: FileSystemAdapter = {
-  readFile: (filePath: string) => fs.readFile(filePath, 'utf-8'),
-  writeFile: (filePath: string, content: string) => fs.writeFile(filePath, content, 'utf-8'),
-  fileExists: async (filePath: string) => {
-    try {
-      await fs.access(filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  },
-};
+export function createDefaultFsAdapter(cwd: string = process.cwd()): FileSystemAdapter {
+  return {
+    readFile: (filePath: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      return fs.readFile(resolved, 'utf-8');
+    },
+    writeFile: (filePath: string, content: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      return fs.writeFile(resolved, content, 'utf-8');
+    },
+    fileExists: async (filePath: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      try {
+        await fs.access(resolved);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+export const defaultFsAdapter: FileSystemAdapter = createDefaultFsAdapter();
 
 /**
  * Extracts candidate file paths from stack traces, test runner failures, and compiler diagnostics.
@@ -112,7 +123,7 @@ export async function extractErrorCandidateFiles(
   stderr: string,
   stdout: string,
   cwd: string,
-  fsAdapter: FileSystemAdapter = defaultFsAdapter
+  fsAdapter: FileSystemAdapter = createDefaultFsAdapter(cwd)
 ): Promise<string[]> {
   const text = `${stderr}\n${stdout}`;
   const candidates = new Set<string>();
@@ -170,7 +181,7 @@ export async function executeSelfHealingLoop(
   const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   const executor = options?.executor;
   const patcher = options?.patcher;
-  const fsAdapter = options?.fsAdapter ?? defaultFsAdapter;
+  const fsAdapter = options?.fsAdapter ?? createDefaultFsAdapter(cwd);
 
   if (!executor) {
     throw new Error('CommandExecutor adapter is required');
