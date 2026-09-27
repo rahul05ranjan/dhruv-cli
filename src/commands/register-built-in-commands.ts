@@ -3,7 +3,60 @@
  * Plugin Commands are not involved; they keep using the Commander `program` directly.
  */
 import type { Command } from 'commander';
-import { builtInCommands, globalOptions, type BuiltInCommand, type BuiltInCommandOptions } from './built-in-commands.js';
+import { builtInCommands, globalOptions, findBuiltInCommand, type BuiltInCommand, type BuiltInCommandOptions } from './built-in-commands.js';
+import { routeIntent } from '../core/intent-routing.js';
+
+export interface DispatchContext {
+  isTTY?: boolean;
+}
+
+export async function dispatchRootQuery(
+  query: string,
+  options: BuiltInCommandOptions = {},
+  context: DispatchContext = {}
+): Promise<void> {
+  const isTTY = context.isTTY ?? Boolean(process.stdout?.isTTY);
+  const routing = await routeIntent(query);
+
+  if (routing.fallbackToMenu || !routing.command) {
+    if (isTTY) {
+      const menuCmd = findBuiltInCommand('menu');
+      if (menuCmd) {
+        return menuCmd.run({ filter: query.trim() || undefined }, options);
+      }
+    } else {
+      const { printError } = await import('../utils/ux.js');
+      printError(`Low routing confidence for query: "${query}". Specify a subcommand (e.g. dhruv explain, dhruv review) or run interactively.`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  const targetCmd = findBuiltInCommand(routing.command);
+  if (!targetCmd) {
+    const { printError } = await import('../utils/ux.js');
+    printError(`Unknown routed command "${routing.command}".`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const argDefs = targetCmd.arguments ?? [];
+  const args: Record<string, string | undefined> = {};
+
+  if (argDefs.length > 0) {
+    const primaryArg = argDefs[0];
+    if (primaryArg.name === 'query') {
+      args[primaryArg.name] = routing.args[0] ?? query;
+    } else {
+      args[primaryArg.name] = routing.target ?? routing.args[0] ?? primaryArg.defaultValue;
+    }
+    if (argDefs.length > 1 && routing.target) {
+      args[argDefs[1].name] = routing.target;
+    }
+  }
+
+  return targetCmd.run(args, options);
+}
 
 function registerBuiltInCommand(program: Command, definition: BuiltInCommand): void {
   const argumentDefinitions = definition.arguments ?? [];
@@ -36,4 +89,11 @@ export function registerBuiltInCommands(program: Command): void {
   for (const option of globalOptions) {
     program.option(option.flags, option.description);
   }
+
+  program
+    .argument('[query...]', 'Natural-language request to auto-route to a command')
+    .action(async (queryParts: string[], cmdOptions: BuiltInCommandOptions) => {
+      const query = (queryParts || []).join(' ');
+      await dispatchRootQuery(query, cmdOptions);
+    });
 }
