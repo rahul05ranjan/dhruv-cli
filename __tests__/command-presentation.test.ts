@@ -4,7 +4,7 @@ import {
   TextPresentationAdapter,
   JsonPresentationAdapter,
 } from '../src/core/command-presentation';
-import type { SourceFailureOutcome, SourceSuccessOutcome } from '../src/core/source-bundle';
+import type { SourceFailureOutcome, SourceSuccessOutcome } from '../src/core/source-ingestion';
 
 jest.mock('../src/utils/ux', () => ({
   printError: jest.fn(),

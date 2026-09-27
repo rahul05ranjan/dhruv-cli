@@ -3,7 +3,7 @@ import path from 'path';
 import { runCommand } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { detectProjectType } from '../utils/projectType.js';
-import { ingestSource } from '../core/source-bundle.js';
+import { ingestSource } from '../core/source-ingestion.js';
 import { presentSourceOutcome } from '../core/command-presentation.js';
 
 export interface ReviewOptions {

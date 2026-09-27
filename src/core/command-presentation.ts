@@ -1,6 +1,6 @@
 import { printError, printInfo } from '../utils/ux.js';
 import { loadConfig } from '../config/config.js';
-import type { SourceOutcome, SourceSuccessOutcome, SourceFailureOutcome } from './source-bundle.js';
+import type { SourceOutcome, SourceSuccessOutcome, SourceFailureOutcome } from './source-ingestion.js';
 
 export interface CommandPresentationAdapter {
   presentSourceFailure(command: string, failure: SourceFailureOutcome): void;
