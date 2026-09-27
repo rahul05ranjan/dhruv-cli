@@ -30,6 +30,7 @@ describe('Root Natural-Language Intent Dispatch', () => {
   it('routes and executes the explain command when query confidence is high', async () => {
     const explainCmd = findBuiltInCommand('explain') as BuiltInCommand;
     const runSpy = jest.spyOn(explainCmd, 'run').mockImplementation(() => Promise.resolve());
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     await dispatchRootQuery('can you explain how the logger works in this project?', { verbose: true });
 
@@ -37,6 +38,7 @@ describe('Root Natural-Language Intent Dispatch', () => {
       { query: 'can you explain how the logger works in this project?' },
       { verbose: true }
     );
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Routed via Laya Intent Model'));
   });
 
   it('routes and executes the review command with the extracted target file', async () => {
