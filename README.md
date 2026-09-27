@@ -75,6 +75,7 @@ Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choos
 
 | Command | What it does |
 | --- | --- |
+| `dhruv "<query>"` | Auto-route a natural-language request to the appropriate command using Intent Routing |
 | `dhruv suggest <query>` | Generate practical suggestions for a development task |
 | `dhruv explain <query>` | Explain a concept, command, or unfamiliar error |
 | `dhruv fix <query>` | Analyze a coding issue and propose a fix |
@@ -88,6 +89,23 @@ Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choos
 | `dhruv project-type` | Detect the current project type |
 | `dhruv menu` | Open the interactive command palette |
 | `dhruv completion [shell]` | Generate Bash, Zsh, or Fish completion |
+
+### Natural language execution (Intent Routing)
+
+You don't need to remember specific subcommands or flags. Pass your natural-language intent directly to `dhruv`:
+
+```bash
+# Auto-detects workspace paths and dispatches to 'review'
+dhruv "review src/core for potential memory leaks"
+
+# Dispatches to 'explain'
+dhruv "how does the caching mechanism work?"
+
+# Auto-detects directory and dispatches to 'security-check'
+dhruv "audit security vulnerabilities in src/commands"
+```
+
+Intent Routing is powered by a non-autoregressive decision model schema ([Laya](https://huggingface.co/convaiinnovations/laya)). In under 35ms, it classifies intent with mathematically calibrated probabilities and auto-binds referenced workspace files or directories. If a query is ambiguous (confidence < 0.60), Dhruv seamlessly falls back to the interactive menu palette with your query pre-populated.
 
 ### Common workflows
 
