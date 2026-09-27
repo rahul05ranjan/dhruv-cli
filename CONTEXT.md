@@ -23,3 +23,7 @@ _Avoid_: Output handling, formatting
 **Runtime Diagnostic**:
 A fact about Dhruv CLI readiness, including the configured model, local model availability, and host conditions.
 _Avoid_: Health data, status data
+
+**Intent Routing**:
+The conversion of a free-form natural language query into a target Built-in Command dispatch using non-autoregressive decision classification.
+_Avoid_: Query classification, command guessing, prompt routing
