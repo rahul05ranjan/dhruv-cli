@@ -65,6 +65,62 @@ describe('diagnostic commands', () => {
     }
   });
 
+  it('emits structured status output with failing exitCode in JSON mode when configured model is missing', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockResolvedValue(['other-model']);
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434', version: '0.12.3' });
+    saveConfig({ model: 'test-model', responseFormat: 'json' });
+    const output: string[] = [];
+    const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    try {
+      await status();
+      expect(process.exitCode).toBe(1);
+      expect(JSON.parse(output.join(''))).toMatchObject({
+        ok: false,
+        command: 'status',
+        model: 'test-model',
+        configuredModelAvailable: false,
+        nextSteps: ['ollama pull test-model'],
+      });
+    } finally {
+      write.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
+  it('emits structured failure status in JSON mode when ollama is unavailable', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockRejectedValue(new Error('connection refused'));
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434' });
+    saveConfig({ model: 'test-model', responseFormat: 'json' });
+    const output: string[] = [];
+    const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    try {
+      await status();
+      expect(process.exitCode).toBe(1);
+      expect(JSON.parse(output.join(''))).toMatchObject({
+        ok: false,
+        command: 'status',
+        model: 'test-model',
+        ollama: 'unavailable',
+        error: 'connection refused',
+      });
+    } finally {
+      write.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
   it('emits structured health output in JSON mode', async () => {
     jest.mocked(listModels).mockResolvedValue(['test-model']);
     saveConfig({ model: 'test-model', responseFormat: 'json' });
