@@ -55,6 +55,13 @@ export async function dispatchRootQuery(
     }
   }
 
+  if (!options.json) {
+    const { default: chalk } = await import('chalk');
+    const percentage = Math.round(routing.confidence * 100);
+    const targetInfo = routing.target ? ` on ${chalk.bold(routing.target)}` : '';
+    console.log(chalk.cyan(`⚡ Routed via Laya Intent Model → `) + chalk.bold(routing.command) + chalk.cyan(targetInfo) + chalk.dim(` (${percentage}% confidence)\n`));
+  }
+
   return targetCmd.run(args, options);
 }
 
