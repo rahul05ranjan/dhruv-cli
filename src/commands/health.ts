@@ -6,6 +6,7 @@ import { logger } from '../core/logger.js';
 import { metricsCollector } from '../core/metrics.js';
 import { securityManager } from '../core/security.js';
 import { detectProjectType } from '../utils/projectType.js';
+import { takeRuntimeDiagnosticSnapshot, RuntimeDiagnosticSnapshot } from '../core/runtime-diagnostic.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -56,7 +57,8 @@ export async function health(options: HealthOptions = {}): Promise<void> {
     results.push(...await checkDependencies());
 
     // AI Service Check
-    results.push(...await checkAIService());
+    const diagnosticSnapshot = await takeRuntimeDiagnosticSnapshot();
+    results.push(...await checkAIService(diagnosticSnapshot));
 
     // Security Check
     results.push(...await checkSecurity());
@@ -239,17 +241,43 @@ async function checkDependencies(): Promise<HealthCheckResult[]> {
   return results;
 }
 
-async function checkAIService(): Promise<HealthCheckResult[]> {
+async function checkAIService(snapshot?: RuntimeDiagnosticSnapshot): Promise<HealthCheckResult[]> {
   const results: HealthCheckResult[] = [];
 
   try {
-    // Reuses the AI module's seam — no private Ollama connection here.
-    const { listModels } = await import('../core/ai.js');
-    await listModels();
+    const diag = snapshot ?? await takeRuntimeDiagnosticSnapshot();
+
+    if (diag.ollama === 'unavailable') {
+      results.push({
+        category: 'AI Service',
+        status: 'fail',
+        message: 'Ollama service is not accessible',
+        details: diag.error,
+        recommendation: diag.nextSteps[0] ?? 'Start Ollama with "ollama serve"',
+      });
+      return results;
+    }
+
+    if (!diag.configuredModelAvailable) {
+      results.push({
+        category: 'AI Service',
+        status: 'fail',
+        message: `Configured model '${diag.configuredModel}' is not available`,
+        details: { availableModels: diag.availableModels },
+        recommendation: diag.nextSteps[0] ?? `Install the model: ollama pull ${diag.configuredModel}`,
+      });
+      return results;
+    }
+
     results.push({
       category: 'AI Service',
       status: 'pass',
-      message: 'Ollama service is running and accessible'
+      message: 'Ollama service is running and accessible',
+      details: {
+        endpoint: diag.endpoint,
+        version: diag.version,
+        model: diag.configuredModel,
+      },
     });
   } catch (error) {
     results.push({
@@ -257,7 +285,7 @@ async function checkAIService(): Promise<HealthCheckResult[]> {
       status: 'fail',
       message: 'Ollama service is not accessible',
       details: error,
-      recommendation: 'Start Ollama with "ollama serve"'
+      recommendation: 'Start Ollama with "ollama serve"',
     });
   }
 

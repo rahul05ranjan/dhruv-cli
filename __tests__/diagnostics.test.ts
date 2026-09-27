@@ -65,6 +65,62 @@ describe('diagnostic commands', () => {
     }
   });
 
+  it('emits structured status output with failing exitCode in JSON mode when configured model is missing', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockResolvedValue(['other-model']);
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434', version: '0.12.3' });
+    saveConfig({ model: 'test-model', responseFormat: 'json' });
+    const output: string[] = [];
+    const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    try {
+      await status();
+      expect(process.exitCode).toBe(1);
+      expect(JSON.parse(output.join(''))).toMatchObject({
+        ok: false,
+        command: 'status',
+        model: 'test-model',
+        configuredModelAvailable: false,
+        nextSteps: ['ollama pull test-model'],
+      });
+    } finally {
+      write.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
+  it('emits structured failure status in JSON mode when ollama is unavailable', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockRejectedValue(new Error('connection refused'));
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434' });
+    saveConfig({ model: 'test-model', responseFormat: 'json' });
+    const output: string[] = [];
+    const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    try {
+      await status();
+      expect(process.exitCode).toBe(1);
+      expect(JSON.parse(output.join(''))).toMatchObject({
+        ok: false,
+        command: 'status',
+        model: 'test-model',
+        ollama: 'unavailable',
+        error: 'connection refused',
+      });
+    } finally {
+      write.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
   it('emits structured health output in JSON mode', async () => {
     jest.mocked(listModels).mockResolvedValue(['test-model']);
     saveConfig({ model: 'test-model', responseFormat: 'json' });
@@ -92,6 +148,75 @@ describe('diagnostic commands', () => {
       memory.mockRestore();
       write.mockRestore();
       saveConfig({ responseFormat: 'text' });
+    }
+  });
+
+  it('emits structured health output with failing exitCode in JSON mode when configured model is missing', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockResolvedValue(['other-model']);
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434', version: '0.12.3' });
+    saveConfig({ model: 'test-model', responseFormat: 'json' });
+    const output: string[] = [];
+    const write = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    const memory = jest.spyOn(process, 'memoryUsage').mockReturnValue({
+      rss: 40 * 1024 * 1024,
+      heapTotal: 30 * 1024 * 1024,
+      heapUsed: 20 * 1024 * 1024,
+      external: 1024 * 1024,
+      arrayBuffers: 0,
+    });
+
+    try {
+      await health();
+      expect(process.exitCode).toBe(1);
+      const parsed = JSON.parse(output.join('')) as {
+        ok: boolean;
+        command: string;
+        results: Array<{ category: string; status: string; message: string }>;
+        summary: { fail: number };
+      };
+      expect(parsed).toMatchObject({
+        ok: false,
+        command: 'health',
+      });
+      expect(parsed.summary.fail).toBeGreaterThan(0);
+      const aiResult = parsed.results.find((r) => r.category === 'AI Service');
+      expect(aiResult).toBeDefined();
+      expect(aiResult?.status).toBe('fail');
+      expect(aiResult?.message).toContain('test-model');
+    } finally {
+      memory.mockRestore();
+      write.mockRestore();
+      saveConfig({ responseFormat: 'text' });
+      process.exitCode = 0;
+    }
+  });
+
+  it('sets process.exitCode = 1 on health in text mode when configured model is missing', async () => {
+    process.exitCode = 0;
+    jest.mocked(listModels).mockResolvedValue(['other-model']);
+    jest.mocked(getOllamaStatus).mockResolvedValue({ endpoint: 'http://127.0.0.1:11434', version: '0.12.3' });
+    saveConfig({ model: 'test-model', responseFormat: 'text' });
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const memory = jest.spyOn(process, 'memoryUsage').mockReturnValue({
+      rss: 40 * 1024 * 1024,
+      heapTotal: 30 * 1024 * 1024,
+      heapUsed: 20 * 1024 * 1024,
+      external: 1024 * 1024,
+      arrayBuffers: 0,
+    });
+
+    try {
+      await health();
+      expect(process.exitCode).toBe(1);
+    } finally {
+      memory.mockRestore();
+      process.exitCode = 0;
+      logSpy.mockRestore();
     }
   });
 
