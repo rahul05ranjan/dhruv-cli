@@ -52,12 +52,21 @@ describe('Intent Routing', () => {
       ['optimize the performance and speed up latency', 'optimize'],
       ['check for SQL injection and secret leaks', 'security-check'],
       ['scaffold a new component and create boilerplate', 'generate'],
+      ['run npm test and auto fix', 'run'],
+      ['execute pytest with self-healing', 'run'],
     ])('routes "%s" to command "%s" with confidence >= 0.60', async (query, expectedCommand) => {
       const result = await routeIntent(query);
 
       expect(result.command).toBe(expectedCommand);
       expect(result.confidence).toBeGreaterThanOrEqual(0.60);
       expect(result.fallbackToMenu).toBe(false);
+    });
+
+    it('extracts target command and autoFix flag for self-healing execution queries', async () => {
+      const result = await routeIntent('run npm test and auto fix');
+      expect(result.command).toBe('run');
+      expect(result.target).toBe('npm test');
+      expect(result.options?.autoFix).toBe(true);
     });
   });
 

@@ -1,0 +1,308 @@
+import fs from 'fs/promises';
+import path from 'path';
+
+export interface CommandExecutionResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export type CommandExecutor = (
+  command: string,
+  cwd: string
+) => Promise<CommandExecutionResult>;
+
+export interface FilePatch {
+  filePath: string;
+  originalContent: string;
+  patchedContent: string;
+  diff?: string;
+}
+
+export interface PatchGeneratorInput {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  files: Record<string, string>;
+}
+
+export type PatchGenerator = (
+  input: PatchGeneratorInput
+) => Promise<{ patches: FilePatch[]; explanation?: string }>;
+
+export interface FileSystemAdapter {
+  readFile: (filePath: string) => Promise<string>;
+  writeFile: (filePath: string, content: string) => Promise<void>;
+  fileExists: (filePath: string) => Promise<boolean>;
+}
+
+export interface SelfHealingOptions {
+  cwd?: string;
+  maxIterations?: number;
+  executor?: CommandExecutor;
+  patcher?: PatchGenerator;
+  fsAdapter?: FileSystemAdapter;
+  onIteration?: (iteration: number, status: 'running' | 'failed' | 'passed' | 'patching') => void;
+  onBeforeApplyPatch?: (patch: FilePatch, iteration: number) => Promise<boolean>;
+}
+
+export interface SelfHealingResult {
+  success: boolean;
+  iterations: number;
+  modifiedFiles: string[];
+  diffs?: string[];
+  finalExitCode: number;
+  explanation?: string;
+  rolledBack: boolean;
+  error?: string;
+}
+
+export const DEFAULT_MAX_ITERATIONS = 3;
+
+/**
+ * Generates a unified-style diff between original and patched contents.
+ */
+export function generateSimpleDiff(
+  filePath: string,
+  originalContent: string,
+  patchedContent: string
+): string {
+  const origLines = originalContent.split('\n');
+  const patchLines = patchedContent.split('\n');
+
+  const diffLines: string[] = [`--- a/${filePath}`, `+++ b/${filePath}`];
+  const max = Math.max(origLines.length, patchLines.length);
+
+  for (let i = 0; i < max; i++) {
+    const orig = origLines[i];
+    const patch = patchLines[i];
+    if (orig === undefined) {
+      diffLines.push(`+ ${patch}`);
+    } else if (patch === undefined) {
+      diffLines.push(`- ${orig}`);
+    } else if (orig !== patch) {
+      diffLines.push(`- ${orig}`);
+      diffLines.push(`+ ${patch}`);
+    } else {
+      diffLines.push(`  ${orig}`);
+    }
+  }
+
+  return diffLines.join('\n');
+}
+
+export function createDefaultFsAdapter(cwd: string = process.cwd()): FileSystemAdapter {
+  return {
+    readFile: (filePath: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      return fs.readFile(resolved, 'utf-8');
+    },
+    writeFile: (filePath: string, content: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      return fs.writeFile(resolved, content, 'utf-8');
+    },
+    fileExists: async (filePath: string) => {
+      const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+      try {
+        await fs.access(resolved);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+export const defaultFsAdapter: FileSystemAdapter = createDefaultFsAdapter();
+
+/**
+ * Extracts candidate file paths from stack traces, test runner failures, and compiler diagnostics.
+ */
+export async function extractErrorCandidateFiles(
+  stderr: string,
+  stdout: string,
+  cwd: string,
+  fsAdapter: FileSystemAdapter = createDefaultFsAdapter(cwd)
+): Promise<string[]> {
+  const text = `${stderr}\n${stdout}`;
+  const candidates = new Set<string>();
+
+  // Patterns for extracting file paths
+  const patterns: RegExp[] = [
+    // Jest FAIL __tests__/file.test.ts
+    /FAIL\s+([^\s:]+\.[a-zA-Z0-9]+)/g,
+    // Stack trace (path/to/file.ext:line:col)
+    /\(([^:)\s]+\.[a-zA-Z0-9]+):(\d+)(?::(\d+))?\)/g,
+    // at path/to/file.ext:line:col
+    /at\s+(?:[^\s(]+\s+\()?([^:)\s]+\.[a-zA-Z0-9]+):(\d+)/g,
+    // TypeScript / ESLint: path/to/file.ext:line:col
+    /(?:^|\s)([\w./\\-]+\.[a-zA-Z0-9]+):\d+:\d+/g,
+    // Python traceback: File "path/to/file.py", line 12
+    /File\s+["']([^"']+\.[a-zA-Z0-9]+)["']/g,
+    // Cargo/Rust: --> path/to/file.rs:12:4
+    /-->\s+([^:)\s]+\.[a-zA-Z0-9]+):\d+:\d+/g,
+  ];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const rawPath = match[1];
+      if (!rawPath) continue;
+
+      // Filter out node internals or node_modules
+      if (rawPath.startsWith('node:') || rawPath.includes('node_modules')) {
+        continue;
+      }
+
+      const normalized = path.isAbsolute(rawPath)
+        ? path.relative(cwd, rawPath)
+        : rawPath.replace(/^[./\\]+/, '');
+
+      if (await fsAdapter.fileExists(normalized)) {
+        candidates.add(normalized);
+      } else if (await fsAdapter.fileExists(rawPath)) {
+        candidates.add(rawPath);
+      }
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+/**
+ * Pure Autonomous Self-Healing Loop Coordinator.
+ */
+export async function executeSelfHealingLoop(
+  command: string,
+  options?: SelfHealingOptions
+): Promise<SelfHealingResult> {
+  const cwd = options?.cwd ?? process.cwd();
+  const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  const executor = options?.executor;
+  const patcher = options?.patcher;
+  const fsAdapter = options?.fsAdapter ?? createDefaultFsAdapter(cwd);
+
+  if (!executor) {
+    throw new Error('CommandExecutor adapter is required');
+  }
+
+  // Pre-mutation snapshots map: filePath -> original content
+  const snapshots: Map<string, string> = new Map();
+  const modifiedFilesSet: Set<string> = new Set();
+  const diffsList: string[] = [];
+  let latestExplanation: string | undefined;
+
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    options?.onIteration?.(iteration, 'running');
+
+    const execution = await executor(command, cwd);
+
+    if (execution.exitCode === 0) {
+      options?.onIteration?.(iteration, 'passed');
+      return {
+        success: true,
+        iterations: iteration,
+        modifiedFiles: Array.from(modifiedFilesSet),
+        diffs: diffsList,
+        finalExitCode: 0,
+        explanation: latestExplanation,
+        rolledBack: false,
+      };
+    }
+
+    options?.onIteration?.(iteration, 'failed');
+
+    // If we've reached the maximum iterations without passing
+    if (iteration === maxIterations) {
+      // Automatic Rollback
+      for (const [filePath, originalContent] of snapshots.entries()) {
+        await fsAdapter.writeFile(filePath, originalContent);
+      }
+
+      return {
+        success: false,
+        iterations: iteration,
+        modifiedFiles: [],
+        diffs: diffsList,
+        finalExitCode: execution.exitCode,
+        explanation: latestExplanation,
+        rolledBack: snapshots.size > 0,
+        error: `Self-healing loop exceeded maximum iterations (${maxIterations}) without passing`,
+      };
+    }
+
+    if (!patcher) {
+      return {
+        success: false,
+        iterations: iteration,
+        modifiedFiles: Array.from(modifiedFilesSet),
+        diffs: diffsList,
+        finalExitCode: execution.exitCode,
+        rolledBack: false,
+        error: 'No patch generator available to synthesize fixes',
+      };
+    }
+
+    options?.onIteration?.(iteration, 'patching');
+
+    // Ingest candidate file contents
+    const candidateFiles = await extractErrorCandidateFiles(
+      execution.stderr,
+      execution.stdout,
+      cwd,
+      fsAdapter
+    );
+
+    const filesContent: Record<string, string> = {};
+    for (const file of candidateFiles) {
+      try {
+        filesContent[file] = await fsAdapter.readFile(file);
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
+    // Generate and apply patch
+    const patchResult = await patcher({
+      command,
+      exitCode: execution.exitCode,
+      stdout: execution.stdout,
+      stderr: execution.stderr,
+      files: filesContent,
+    });
+
+    latestExplanation = patchResult.explanation;
+
+    for (const patch of patchResult.patches) {
+      patch.diff = patch.diff || generateSimpleDiff(patch.filePath, patch.originalContent, patch.patchedContent);
+
+      if (options?.onBeforeApplyPatch) {
+        const shouldApply = await options.onBeforeApplyPatch(patch, iteration);
+        if (!shouldApply) {
+          continue;
+        }
+      }
+
+      // Snapshot original content before first mutation
+      if (!snapshots.has(patch.filePath)) {
+        snapshots.set(patch.filePath, patch.originalContent);
+      }
+
+      await fsAdapter.writeFile(patch.filePath, patch.patchedContent);
+      modifiedFilesSet.add(patch.filePath);
+      if (!diffsList.includes(patch.diff)) {
+        diffsList.push(patch.diff);
+      }
+    }
+  }
+
+  return {
+    success: false,
+    iterations: maxIterations,
+    modifiedFiles: Array.from(modifiedFilesSet),
+    diffs: diffsList,
+    finalExitCode: 1,
+    rolledBack: false,
+  };
+}

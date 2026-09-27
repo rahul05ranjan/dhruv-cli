@@ -11,6 +11,7 @@
 import { queryCommands } from './definitions/query-commands.js';
 import { sourceCommands } from './definitions/source-commands.js';
 import { diagnosticCommands } from './definitions/diagnostic-commands.js';
+import { agentCommands } from './definitions/agent-commands.js';
 
 export interface BuiltInArgument {
   /** Name used in help (`<name>`/`[name]`) and as the key in `BuiltInCommandArgs`. */
@@ -62,6 +63,7 @@ export const globalOptions: readonly BuiltInOption[] = [
 export const builtInCommands: readonly BuiltInCommand[] = [
   ...queryCommands,
   ...sourceCommands,
+  ...agentCommands,
   ...diagnosticCommands,
 ];
 

@@ -6,6 +6,7 @@ export interface IntentRouteResult {
   confidence: number;
   target?: string;
   args: string[];
+  options?: Record<string, unknown>;
   fallbackToMenu: boolean;
 }
 
@@ -67,6 +68,16 @@ export const ROUTING_CRITERIA: readonly CommandCriteria[] = [
     keywords: ['generate', 'create', 'scaffold', 'boilerplate', 'write a', 'build a', 'new component'],
     patterns: [/\bgenerate\b/i, /\bcreate\b/i, /\bscaffold\b/i, /\bboilerplate\b/i, /\bwrite (a|an)\b/i, /\bbuild (a|an)\b/i],
     weight: 1.0,
+  },
+  {
+    command: 'run',
+    keywords: ['run', 'execute', 'auto-fix', 'self-heal', 'self-healing', 'heal', 'auto fix'],
+    patterns: [
+      /\b(run|execute)\b.*\b(auto[- ]?fix|self[- ]?heal)/i,
+      /\b(auto[- ]?fix|self[- ]?heal)\b.*\b(run|execute)/i,
+      /\b(run|execute)\s+[`'"]?[a-zA-Z0-9_\-./]+/i,
+    ],
+    weight: 1.1,
   },
 ];
 
@@ -177,6 +188,43 @@ async function queryLayaServer(
 }
 
 /**
+ * Extracts target command and flags for command execution queries.
+ */
+export function extractRunCommandDetails(query: string): { targetCommand?: string; autoFix?: boolean } {
+  const autoFix = /\b(auto[- ]?fix|self[- ]?heal(?:ing)?|auto repair)\b/i.test(query);
+
+  let targetCommand: string | undefined;
+
+  // Pattern 1: (run|execute) <target> (and/with) (auto-fix|self-heal|fix)
+  const runWithFixMatch = query.match(/\b(?:run|execute)\s+(?:command\s+)?["'`]?(.+?)["'`]?(?:\s+(?:and|with)\s+(?:auto[- ]?fix|self[- ]?heal(?:ing)?|auto repair|fix))$/i);
+  if (runWithFixMatch) {
+    targetCommand = runWithFixMatch[1].trim();
+  } else {
+    // Pattern 2: (run|execute) <target>
+    const runMatch = query.match(/\b(?:run|execute)\s+(?:command\s+)?["'`]?([^"'`]+)["'`]?/i);
+    if (runMatch) {
+      let cleaned = runMatch[1].trim();
+      cleaned = cleaned.replace(/\s+(?:and|with)\s+(?:auto[- ]?fix|self[- ]?heal(?:ing)?|auto repair|fix).*$/i, '').trim();
+      cleaned = cleaned.replace(/--(?:auto-fix|apply)\b/g, '').trim();
+      targetCommand = cleaned;
+    }
+  }
+
+  // If still empty and auto-fix <target> was supplied:
+  if (!targetCommand) {
+    const autoFixMatch = query.match(/\b(?:auto[- ]?fix|self[- ]?heal(?:ing)?)\s+(?:command\s+)?["'`]?([^"'`]+)["'`]?/i);
+    if (autoFixMatch) {
+      targetCommand = autoFixMatch[1].trim();
+    }
+  }
+
+  return {
+    targetCommand: targetCommand || undefined,
+    autoFix,
+  };
+}
+
+/**
  * Pure Intent Routing seam.
  * Converts free-form natural language query into target Built-in Command dispatch.
  */
@@ -211,8 +259,22 @@ export async function routeIntent(
   }
 
   const { command, confidence } = classification;
-  const target = extractPathTarget(trimmed, cwd);
   const fallbackToMenu = confidence < threshold;
+
+  if (command === 'run') {
+    const runDetails = extractRunCommandDetails(trimmed);
+    const target = runDetails.targetCommand ?? extractPathTarget(trimmed, cwd);
+    return {
+      command: 'run',
+      confidence,
+      target,
+      args: target ? [target] : [trimmed],
+      options: runDetails.autoFix ? { autoFix: true } : undefined,
+      fallbackToMenu,
+    };
+  }
+
+  const target = extractPathTarget(trimmed, cwd);
 
   return {
     command,

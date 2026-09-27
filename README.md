@@ -83,6 +83,7 @@ Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choos
 | `dhruv optimize <file>` | Find actionable improvements for source or configuration files |
 | `dhruv security-check [file-or-dir]` | Run a redacted local security analysis; add `--strict` for CI failure on high-confidence findings |
 | `dhruv generate <type> <target>` | Preview generated tests by default; use `--apply`, `--output`, or `--overwrite` to write safely |
+| `dhruv run <command>` | Execute a shell command with optional autonomous self-healing (`--auto-fix`, `--apply`, `--max-iterations`) |
 | `dhruv status` | Check Ollama connectivity and configured models |
 | `dhruv health` | Show a concise health summary; use `--details` for diagnostics |
 | `dhruv metrics` | Inspect local usage and performance metrics; use `--raw` or `--reset` explicitly |
@@ -103,6 +104,9 @@ dhruv "how does the caching mechanism work?"
 
 # Auto-detects directory and dispatches to 'security-check'
 dhruv "audit security vulnerabilities in src/commands"
+
+# Auto-routes to 'run' with autonomous self-healing enabled
+dhruv "run npm test and auto fix"
 ```
 
 Intent Routing is powered by a non-autoregressive decision model schema ([Laya](https://huggingface.co/convaiinnovations/laya)). In under 35ms, it classifies intent with mathematically calibrated probabilities and auto-binds referenced workspace files or directories. If a query is ambiguous (confidence < 0.60), Dhruv seamlessly falls back to the interactive menu palette with your query pre-populated.
@@ -120,6 +124,11 @@ dhruv review --diff .
 dhruv optimize package.json
 dhruv security-check src/
 dhruv security-check src/ --strict
+
+# Autonomous self-healing execution
+dhruv run "npm test" --auto-fix                 # interactive diff preview & confirmation
+dhruv run "npm test" --auto-fix --apply         # autonomous repair without blocking prompts
+dhruv run "npm test" --auto-fix --json          # structured machine-readable report for CI
 
 # Generate and automate
 dhruv generate tests src/utils/helpers.js       # preview only
