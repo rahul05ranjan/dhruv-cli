@@ -44,12 +44,14 @@ export interface SelfHealingOptions {
   patcher?: PatchGenerator;
   fsAdapter?: FileSystemAdapter;
   onIteration?: (iteration: number, status: 'running' | 'failed' | 'passed' | 'patching') => void;
+  onBeforeApplyPatch?: (patch: FilePatch, iteration: number) => Promise<boolean>;
 }
 
 export interface SelfHealingResult {
   success: boolean;
   iterations: number;
   modifiedFiles: string[];
+  diffs?: string[];
   finalExitCode: number;
   explanation?: string;
   rolledBack: boolean;
@@ -57,6 +59,38 @@ export interface SelfHealingResult {
 }
 
 export const DEFAULT_MAX_ITERATIONS = 3;
+
+/**
+ * Generates a unified-style diff between original and patched contents.
+ */
+export function generateSimpleDiff(
+  filePath: string,
+  originalContent: string,
+  patchedContent: string
+): string {
+  const origLines = originalContent.split('\n');
+  const patchLines = patchedContent.split('\n');
+
+  const diffLines: string[] = [`--- a/${filePath}`, `+++ b/${filePath}`];
+  const max = Math.max(origLines.length, patchLines.length);
+
+  for (let i = 0; i < max; i++) {
+    const orig = origLines[i];
+    const patch = patchLines[i];
+    if (orig === undefined) {
+      diffLines.push(`+ ${patch}`);
+    } else if (patch === undefined) {
+      diffLines.push(`- ${orig}`);
+    } else if (orig !== patch) {
+      diffLines.push(`- ${orig}`);
+      diffLines.push(`+ ${patch}`);
+    } else {
+      diffLines.push(`  ${orig}`);
+    }
+  }
+
+  return diffLines.join('\n');
+}
 
 export const defaultFsAdapter: FileSystemAdapter = {
   readFile: (filePath: string) => fs.readFile(filePath, 'utf-8'),
@@ -145,6 +179,7 @@ export async function executeSelfHealingLoop(
   // Pre-mutation snapshots map: filePath -> original content
   const snapshots: Map<string, string> = new Map();
   const modifiedFilesSet: Set<string> = new Set();
+  const diffsList: string[] = [];
   let latestExplanation: string | undefined;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
@@ -158,6 +193,7 @@ export async function executeSelfHealingLoop(
         success: true,
         iterations: iteration,
         modifiedFiles: Array.from(modifiedFilesSet),
+        diffs: diffsList,
         finalExitCode: 0,
         explanation: latestExplanation,
         rolledBack: false,
@@ -177,6 +213,7 @@ export async function executeSelfHealingLoop(
         success: false,
         iterations: iteration,
         modifiedFiles: [],
+        diffs: diffsList,
         finalExitCode: execution.exitCode,
         explanation: latestExplanation,
         rolledBack: snapshots.size > 0,
@@ -189,6 +226,7 @@ export async function executeSelfHealingLoop(
         success: false,
         iterations: iteration,
         modifiedFiles: Array.from(modifiedFilesSet),
+        diffs: diffsList,
         finalExitCode: execution.exitCode,
         rolledBack: false,
         error: 'No patch generator available to synthesize fixes',
@@ -226,6 +264,15 @@ export async function executeSelfHealingLoop(
     latestExplanation = patchResult.explanation;
 
     for (const patch of patchResult.patches) {
+      patch.diff = patch.diff || generateSimpleDiff(patch.filePath, patch.originalContent, patch.patchedContent);
+
+      if (options?.onBeforeApplyPatch) {
+        const shouldApply = await options.onBeforeApplyPatch(patch, iteration);
+        if (!shouldApply) {
+          continue;
+        }
+      }
+
       // Snapshot original content before first mutation
       if (!snapshots.has(patch.filePath)) {
         snapshots.set(patch.filePath, patch.originalContent);
@@ -233,6 +280,9 @@ export async function executeSelfHealingLoop(
 
       await fsAdapter.writeFile(patch.filePath, patch.patchedContent);
       modifiedFilesSet.add(patch.filePath);
+      if (!diffsList.includes(patch.diff)) {
+        diffsList.push(patch.diff);
+      }
     }
   }
 
@@ -240,6 +290,7 @@ export async function executeSelfHealingLoop(
     success: false,
     iterations: maxIterations,
     modifiedFiles: Array.from(modifiedFilesSet),
+    diffs: diffsList,
     finalExitCode: 1,
     rolledBack: false,
   };

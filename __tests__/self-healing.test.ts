@@ -157,4 +157,19 @@ describe('Autonomous Self-Healing Loop Coordinator', () => {
       expect(candidates).not.toContain('node:internal/process/task_queues');
     });
   });
+
+  describe('generateSimpleDiff', () => {
+    it('produces unified diff format comparing original and patched contents', async () => {
+      const { generateSimpleDiff } = await import('../src/core/self-healing');
+      const original = 'const a = 1;\nconst b = 2;';
+      const patched = 'const a = 1;\nconst b = 3;\nconst c = 4;';
+
+      const diff = generateSimpleDiff('src/index.ts', original, patched);
+      expect(diff).toContain('--- a/src/index.ts');
+      expect(diff).toContain('+++ b/src/index.ts');
+      expect(diff).toContain('- const b = 2;');
+      expect(diff).toContain('+ const b = 3;');
+      expect(diff).toContain('+ const c = 4;');
+    });
+  });
 });
