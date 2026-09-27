@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.8...v1.9.0) (2026-09-27)
+
+
+### Features
+
+* **routing:** add Intent Routing module and decision criteria ([#143](https://github.com/rahul05ranjan/dhruv-cli/issues/143)) ([#146](https://github.com/rahul05ranjan/dhruv-cli/issues/146)) ([429921b](https://github.com/rahul05ranjan/dhruv-cli/commit/429921bea773cf92daba9b7b4c88235797c9bf63))
+
 ## [1.8.8](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.7...v1.8.8) (2026-09-27)
 
 
