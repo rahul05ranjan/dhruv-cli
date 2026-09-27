@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.9.0...v1.10.0) (2026-09-27)
+
+
+### Features
+
+* **routing:** wire root command natural-language dispatch to Intent Routing ([#144](https://github.com/rahul05ranjan/dhruv-cli/issues/144)) ([#147](https://github.com/rahul05ranjan/dhruv-cli/issues/147)) ([6d49bfd](https://github.com/rahul05ranjan/dhruv-cli/commit/6d49bfd643d6e9dc1c86432836e0ea2bcb3ab31d))
+
 # [1.9.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.8.8...v1.9.0) (2026-09-27)
 
 
