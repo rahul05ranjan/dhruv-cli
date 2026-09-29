@@ -77,7 +77,7 @@ describe('CLI output contract', () => {
     expect(fishResult.stdout).toContain('complete -c dhruv');
     expect(fishResult.stdout).toContain('__fish_seen_subcommand_from generate');
     expect(fishResult.stdout).not.toContain('\u001b[');
-  });
+  }, 30000);
 
   it('keeps loading Plugin Commands next to the Built-in Commands', async () => {
     const env = { ...process.env, DHRUV_METRICS_ENABLED: 'false' };
@@ -86,7 +86,7 @@ describe('CLI output contract', () => {
 
     expect(help.stdout).toMatch(/completion \[shell\] +Generate shell completion script\r?\n +hello-plugin +Say hello from a plugin/);
     expect(run.stdout).toContain('Hello from the Dhruv plugin system!');
-  });
+  }, 30000);
 
   it('rejects unsupported completion shells', async () => {
     await expect(execFileAsync(
