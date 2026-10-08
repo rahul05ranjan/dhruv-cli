@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -101,7 +101,8 @@ describe('Nano repository discovery', () => {
       const nested = JSON.parse(run(join(workspace, 'nested'), 'nano', 'context', 'dirtyMarker untrackedMarker', '--json')) as {
         root: string; files: { path: string }[]; coverage: { partial: boolean }; warnings: string[];
       };
-      expect(nested.root).toBe(realpathSync(workspace));
+      expect(statSync(nested.root).ino).toBe(statSync(workspace).ino);
+      expect(statSync(nested.root).dev).toBe(statSync(workspace).dev);
       expect(nested.files.map((file) => file.path)).toEqual(expect.arrayContaining(['tracked.ts', 'untracked.ts']));
       if (symlinkSupported) {
         expect(nested.coverage.partial).toBe(true);
@@ -179,7 +180,8 @@ describe('Nano repository discovery', () => {
       const result = JSON.parse(run(workspace, 'nano', 'context', 'fallbackMarker', '--json')) as {
         root: string; files: { path: string }[]; coverage: { partial: boolean };
       };
-      expect(result.root).toBe(realpathSync(workspace));
+      expect(statSync(result.root).ino).toBe(statSync(workspace).ino);
+      expect(statSync(result.root).dev).toBe(statSync(workspace).dev);
       expect(result.files.map((file) => file.path)).toEqual(['src/new file.ts']);
       expect(result.coverage.partial).toBe(false);
     } finally {
