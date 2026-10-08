@@ -7,6 +7,7 @@ import { builtInCommands, findBuiltInCommand, type BuiltInCommand } from './buil
 function menuChoices() {
   return [
     ...builtInCommands.map(({ menuLabel, name }) => ({ name: menuLabel, value: name })),
+    { name: 'Nano: find repository context', value: 'nano-context' },
     { name: 'Exit', value: 'exit' },
   ];
 }
@@ -56,6 +57,14 @@ export async function menu() {
       }
 
       try {
+        if (cmd === 'nano-context') {
+          const { task } = await inquirer.prompt([{ type: 'input', name: 'task', message: 'What task are you working on?' }]);
+          if (String(task).trim()) {
+            const { runNanoCli } = await import('../nano/cli.js');
+            await runNanoCli(['node', 'dhruv', 'nano', 'context', String(task)]);
+          }
+          continue;
+        }
         const definition = findBuiltInCommand(cmd);
         if (definition) await runFromMenu(definition);
       } catch (error) {
