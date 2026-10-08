@@ -119,7 +119,7 @@ function gitIgnored(root: string, paths: string[]): Set<string> {
     // git check-ignore exits 1 when no path matches.
     const result = error as { status?: number; stdout?: string };
     if (result.status === 1) return new Set();
-    throw new Error('Git ignore evaluation failed or exceeded its output limit.');
+    throw new Error('Git ignore evaluation failed or exceeded its output limit.', { cause: error });
   }
 }
 
@@ -163,7 +163,7 @@ function loadNanoRules(root: string, relativeDir: string): IgnoreRule[] {
     });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw new Error('Nano ignore rules could not be read.');
+    throw new Error('Nano ignore rules could not be read.', { cause: error });
   }
 }
 
