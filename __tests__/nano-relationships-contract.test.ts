@@ -22,6 +22,7 @@ interface Evidence {
 interface Result {
   files: { path: string; evidence: Evidence[] }[];
   coverage: { partial: boolean };
+  index: { reused: number };
   warnings: string[];
 }
 
@@ -67,6 +68,11 @@ describe('Nano observed import relationships', () => {
       }));
       expect(result.files.map((file) => file.path)).not.toContain('__tests__/token.test.ts');
       expect(result.warnings.join(' ')).toMatch(/not sufficient to prove correctness/);
+
+      const repeated = context(workspace, 'Repair refreshToken');
+      expect(repeated.index.reused).toBeGreaterThan(0);
+      expect(repeated.files.find((file) => file.path === '__tests__/consumer.test.ts')?.evidence)
+        .toContainEqual(expect.objectContaining({ kind: 'related-test', verified: true }));
 
       writeFileSync(join(workspace, '__tests__/consumer.test.ts'), 'it("no import", () => {});\n');
       const changed = context(workspace, 'Repair refreshToken');

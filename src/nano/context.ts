@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { discoverFiles, resolveWorkspace, safeFile } from './discovery.js';
+import { resolveWorkspace, safeFile } from './discovery.js';
+import { refreshIndex } from './index.js';
 import { buildRelationshipSuggestions, hasCurrentImport, isTestPath, parseLocalImports, type NanoImportEvidence, type NanoImportSite, type NanoRelatedTestEvidence } from './relationships.js';
 import { hasCurrentDeclaration, parseSource, sourceFingerprint, type NanoSymbolDeclaration } from './symbols.js';
 
@@ -36,6 +37,7 @@ export interface NanoContextResponse {
   coverage: { discovered: number; scanned: number; partial: boolean };
   truncated: boolean;
   warnings: string[];
+  index: { identity: string | null; freshness: 'fresh' | 'partial' | 'missing' | 'stale' | 'corrupt' | 'purged'; reused: number };
 }
 
 export interface NanoContextRequest {
@@ -44,6 +46,8 @@ export interface NanoContextRequest {
   root?: string;
   scope?: string;
   top?: number;
+  maxRefreshFiles?: number;
+  maxRefreshBytes?: number;
 }
 
 const MAX_SOURCE_BYTES = 1024 * 1024;
@@ -72,28 +76,21 @@ export function context(request: NanoContextRequest): NanoContextResponse {
   const top = request.top ?? 10;
   if (!Number.isInteger(top) || top < 1 || top > 30) throw new Error('Top must be an integer from 1 to 30.');
 
-  const discovered = discoverFiles(workspace);
-  const warnings: string[] = [...discovered.warnings];
-  let scanned = 0;
-  let partial = discovered.partial;
+  const refreshed = refreshIndex(workspace, { maxFiles: request.maxRefreshFiles, maxBytes: request.maxRefreshBytes });
+  const warnings: string[] = [...refreshed.report.warnings];
+  let partial = refreshed.report.coverage.partial;
   const terms = taskTerms(request.task);
   const normalizedTask = request.task.toLowerCase().replace(/\\/g, '/');
   const files: (NanoFile & { tier: number; fingerprint: string })[] = [];
   const importsByFile = new Map<string, ReturnType<typeof parseLocalImports>>();
   const scannedFingerprints = new Map<string, string>();
 
-  for (const relative of discovered.paths) {
-    if (!discovered.permitted(relative)) continue;
+  for (const entry of refreshed.files) {
+    const relative = entry.path;
     try {
-      const absolute = safeFile(workspace, relative);
-      if (!absolute) { partial = true; continue; }
-      const stat = lstatSync(absolute);
-      if (!stat.isFile() || stat.isSymbolicLink()) continue;
-      if (stat.size > MAX_SOURCE_BYTES) { partial = true; continue; }
-      const source = readFileSync(absolute, 'utf8');
-      scanned++;
+      const source = entry.source;
       const slashPath = relative.split(path.sep).join('/');
-      const parsed = parseSource(slashPath, source);
+      const parsed = entry.parsed;
       scannedFingerprints.set(slashPath, parsed.fingerprint);
       importsByFile.set(slashPath, parseLocalImports(slashPath, source));
       if (parsed.partial) {
@@ -210,8 +207,9 @@ export function context(request: NanoContextRequest): NanoContextResponse {
     command: 'nano context',
     root,
     files: currentFiles,
-    coverage: { discovered: discovered.paths.length, scanned, partial },
+    coverage: { discovered: refreshed.report.coverage.discovered, scanned: refreshed.report.coverage.scanned, partial },
     truncated: files.length > currentFiles.length,
     warnings,
+    index: { identity: refreshed.report.identity, freshness: partial ? 'partial' : refreshed.report.freshness, reused: refreshed.report.coverage.reused },
   };
 }
