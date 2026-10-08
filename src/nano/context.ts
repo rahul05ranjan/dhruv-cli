@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { discoverFiles, resolveWorkspace, safeFile } from './discovery.js';
+import { buildRelationshipSuggestions, hasCurrentImport, isTestPath, parseLocalImports, type NanoImportEvidence, type NanoImportSite, type NanoRelatedTestEvidence } from './relationships.js';
 import { hasCurrentDeclaration, parseSource, sourceFingerprint, type NanoSymbolDeclaration } from './symbols.js';
 
 export interface NanoLexicalEvidence {
@@ -19,7 +20,7 @@ export interface NanoSymbolEvidence extends NanoSymbolDeclaration {
   fingerprint: string;
 }
 
-export type NanoEvidence = NanoLexicalEvidence | NanoSymbolEvidence;
+export type NanoEvidence = NanoLexicalEvidence | NanoSymbolEvidence | NanoImportEvidence | NanoRelatedTestEvidence;
 
 export interface NanoFile {
   path: string;
@@ -78,6 +79,8 @@ export function context(request: NanoContextRequest): NanoContextResponse {
   const terms = taskTerms(request.task);
   const normalizedTask = request.task.toLowerCase().replace(/\\/g, '/');
   const files: (NanoFile & { tier: number; fingerprint: string })[] = [];
+  const importsByFile = new Map<string, ReturnType<typeof parseLocalImports>>();
+  const scannedFingerprints = new Map<string, string>();
 
   for (const relative of discovered.paths) {
     if (!discovered.permitted(relative)) continue;
@@ -91,6 +94,8 @@ export function context(request: NanoContextRequest): NanoContextResponse {
       scanned++;
       const slashPath = relative.split(path.sep).join('/');
       const parsed = parseSource(slashPath, source);
+      scannedFingerprints.set(slashPath, parsed.fingerprint);
+      importsByFile.set(slashPath, parseLocalImports(slashPath, source));
       if (parsed.partial) {
         partial = true;
         if (!warnings.includes('Some TypeScript or JavaScript files have syntax errors; declaration evidence is partial.')) {
@@ -129,7 +134,9 @@ export function context(request: NanoContextRequest): NanoContextResponse {
           }
         }
       }
-      if (score > 0) {
+      // A similarly named test is not evidence of a relationship. An explicit
+      // request for the test path can still find that file directly.
+      if (score > 0 && (!isTestPath(slashPath) || explicit)) {
         if (parsed.language === 'unsupported' && !warnings.includes('Some matched files use unsupported languages; path and text evidence only.')) {
           warnings.push('Some matched files use unsupported languages; path and text evidence only.');
         }
@@ -137,6 +144,23 @@ export function context(request: NanoContextRequest): NanoContextResponse {
       }
     } catch {
       partial = true;
+    }
+  }
+
+  const seeds = files.filter((file) => file.tier > 0 && !isTestPath(file.path)).map((file) => file.path);
+  const relationships = buildRelationshipSuggestions(importsByFile, seeds);
+  partial ||= relationships.partial;
+  warnings.push(...relationships.warnings.filter((warning) => !warnings.includes(warning)));
+  for (const suggestion of relationships.suggestions) {
+    const existing = files.find((file) => file.path === suggestion.path);
+    if (existing) {
+      existing.score += suggestion.score;
+      existing.evidence.push(suggestion.evidence);
+    } else {
+      const fingerprint = scannedFingerprints.get(suggestion.path);
+      if (fingerprint === undefined) continue;
+      files.push({ path: suggestion.path, score: suggestion.score, tier: 0,
+        fingerprint, evidence: [suggestion.evidence] });
     }
   }
 
@@ -153,6 +177,25 @@ export function context(request: NanoContextRequest): NanoContextResponse {
       const current = parseSource(file.path, currentSource);
       if (file.evidence.some((item) => item.kind === 'symbol' && !hasCurrentDeclaration(current, item.fingerprint, item))) {
         throw new Error('Declaration changed during verification.');
+      }
+      const currentSources = new Map<string, string>();
+      const ensureCurrent = (relative: string): void => {
+        if (currentSources.has(relative)) return;
+        const target = safeFile(workspace, relative);
+        if (!target || lstatSync(target).size > MAX_SOURCE_BYTES) throw new Error('Relationship endpoint changed during verification.');
+        const value = readFileSync(target, 'utf8');
+        if (sourceFingerprint(value) !== scannedFingerprints.get(relative)) throw new Error('Relationship endpoint changed during verification.');
+        currentSources.set(relative, value);
+      };
+      for (const evidence of file.evidence) {
+        const sites: NanoImportSite[] = evidence.kind === 'related-test' ? evidence.imports
+          : evidence.kind === 'import' ? [{ importer: evidence.importer, imported: evidence.imported,
+            specifier: evidence.specifier, kind: evidence.importKind, line: evidence.line, startOffset: evidence.startOffset }] : [];
+        for (const site of sites) {
+          ensureCurrent(site.importer);
+          ensureCurrent(site.imported);
+          if (!hasCurrentImport(site, currentSources, new Set(importsByFile.keys()))) throw new Error('Import changed during verification.');
+        }
       }
       currentFiles.push({ path: file.path, score: file.score, evidence: file.evidence });
     } catch {
