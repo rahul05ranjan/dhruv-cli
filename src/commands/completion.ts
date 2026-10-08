@@ -48,11 +48,11 @@ function argumentFacts(args: readonly BuiltInArgument[] = []): Pick<CompletionTa
 }
 
 function completionTargets(): CompletionTarget[] {
-  return builtInCommands.map((definition) => ({
+  return [...builtInCommands.map((definition) => ({
     name: definition.name,
     ...argumentFacts(definition.arguments),
     flags: [...(definition.options ?? []), ...globalOptions, helpOption].map(parseFlags),
-  }));
+  })), { name: 'nano', completeFiles: false, flags: [parseFlags(helpOption)] }];
 }
 
 /** Program-level options: accepted before any command. */
@@ -83,6 +83,14 @@ function bashScript(targets: CompletionTarget[], commands: string, options: stri
   const perCommandBlock = `
   if [[ $COMP_CWORD -gt 1 ]]; then
     case "\${COMP_WORDS[1]}" in
+      nano)
+        commands="context"
+        options="--help"
+        if [[ "\${COMP_WORDS[2]}" == "context" ]]; then
+          commands=""
+          options="--help --json --root --scope --top"
+        fi
+        ;;
 ${targets.map((target) => `      ${target.name})
         commands=""
         options="${flagWords(target.flags)}"
@@ -121,6 +129,7 @@ function zshOptionSpecs(flag: CompletionFlag): string[] {
 }
 
 function zshBranch(target: CompletionTarget): string | undefined {
+  if (target.name === 'nano') return `        nano) _arguments '1:subcommand:(context)' '--help[display help for command]' '--json[Emit one versioned JSON response]' '--root[Workspace root]:path:_files' '--scope[Limit to directory]:path:_files' '--top[Maximum files]:count:' ;;`;
   const specs = [
     ...(target.choices ? [`'${target.choices.position}:${target.choices.name}:(${target.choices.values.join(' ')})'`] : []),
     ...(target.completeFiles ? [`'*:file:_files'`] : []),
@@ -168,6 +177,10 @@ function fishScript(targets: CompletionTarget[], commands: string, options: stri
       const names = [flag.short && `-s ${flag.short.slice(1)}`, flag.long && `-l ${flag.long.slice(2)}`].filter(Boolean).join(' ');
       lines.push(`complete -c dhruv -n ${seen(target.name)} ${names}${flag.valueName ? ' -r' : ''} -d ${singleQuoted(flag.description)}`);
     }
+  }
+  lines.push("complete -c dhruv -f -n '__fish_seen_subcommand_from nano; and not __fish_seen_subcommand_from context' -a 'context'");
+  for (const flag of ['json', 'root', 'scope', 'top']) {
+    lines.push(`complete -c dhruv -n '__fish_seen_subcommand_from nano; and __fish_seen_subcommand_from context' -l ${flag}${flag === 'json' ? '' : ' -r'}`);
   }
   const otherCommands = `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${targets.map((target) => target.name).join(' ')}`;
   lines.push(`complete -c dhruv -f -n '${otherCommands}' -a '${options}'`);
