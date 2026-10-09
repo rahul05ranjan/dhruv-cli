@@ -51,6 +51,7 @@ export interface NanoContextRequest {
   maxOutputBytes?: number;
   maxRefreshFiles?: number;
   maxRefreshBytes?: number;
+  refresh?: boolean;
 }
 
 const MAX_SOURCE_BYTES = 1024 * 1024;
@@ -78,6 +79,17 @@ function taskNamesSymbol(task: string, symbol: string): boolean {
   return new RegExp(`(^|[^\\p{L}\\p{N}_$])${escaped}(?=$|[^\\p{L}\\p{N}_$])`, 'u').test(task);
 }
 
+function taskNamesPath(task: string, namedPath: string): boolean {
+  let position = task.indexOf(namedPath);
+  while (position !== -1) {
+    const before = task.slice(0, position);
+    const after = task.slice(position + namedPath.length);
+    if (!/[\p{L}\p{N}_./-]$/u.test(before) && !/^[\p{L}\p{N}_./-]/u.test(after)) return true;
+    position = task.indexOf(namedPath, position + 1);
+  }
+  return false;
+}
+
 function collectContext(request: NanoContextRequest): { response: NanoContextResponse; candidates: string[] } {
   if (!request.task.trim()) throw new Error('Task text is required.');
   const workspace = resolveWorkspace(request);
@@ -89,7 +101,7 @@ function collectContext(request: NanoContextRequest): { response: NanoContextRes
     throw new Error(`Output byte limit must be an integer from ${MIN_OUTPUT_BYTES} to ${MAX_OUTPUT_BYTES}.`);
   }
 
-  const refreshed = refreshIndex(workspace, { maxFiles: request.maxRefreshFiles, maxBytes: request.maxRefreshBytes });
+  const refreshed = refreshIndex(workspace, { maxFiles: request.maxRefreshFiles, maxBytes: request.maxRefreshBytes, force: request.refresh });
   const warnings: string[] = [...refreshed.report.warnings];
   let partial = refreshed.report.coverage.partial;
   const terms = taskTerms(request.task);
@@ -114,8 +126,8 @@ function collectContext(request: NanoContextRequest): { response: NanoContextRes
       }
       const lowerPath = slashPath.toLowerCase();
       const basename = path.basename(relative).toLowerCase();
-      const explicit = (lowerPath.includes('/') && normalizedTask.includes(lowerPath)) ||
-        (basename.includes('.') && normalizedTask.includes(basename));
+      const explicit = (lowerPath.includes('/') && taskNamesPath(normalizedTask, lowerPath)) ||
+        (basename.includes('.') && taskNamesPath(normalizedTask, basename));
       let score = explicit ? 1000 : 0;
       const evidence: NanoEvidence[] = [];
       if (explicit) evidence.push({ kind: 'path', basis: 'lexical', verified: true, detail: 'Task names this on-disk path.' });

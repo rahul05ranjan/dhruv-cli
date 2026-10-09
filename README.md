@@ -88,6 +88,8 @@ Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choos
 | `dhruv health` | Show a concise health summary; use `--details` for diagnostics |
 | `dhruv metrics` | Inspect local usage and performance metrics; use `--raw` or `--reset` explicitly |
 | `dhruv project-type` | Detect the current project type |
+| `dhruv nano context <task>` | Find relevant repository files with current, labeled evidence and no model |
+| `dhruv nano index/status/purge` | Build, inspect, or remove Nano's local index |
 | `dhruv menu` | Open the interactive command palette |
 | `dhruv completion [shell]` | Generate Bash, Zsh, or Fish completion |
 
@@ -112,6 +114,16 @@ dhruv "run npm test and auto fix"
 Intent Routing is powered by a non-autoregressive decision model schema ([Laya](https://huggingface.co/convaiinnovations/laya)). In under 35ms, it classifies intent with mathematically calibrated probabilities and auto-binds referenced workspace files or directories. If a query is ambiguous (confidence < 0.60), Dhruv seamlessly falls back to the interactive menu palette with your query pre-populated.
 
 ### Common workflows
+
+Nano searches the containing Git repository by default. Use `--root` to select a directory and `--scope` to narrow it. It honors Git and `.nanoignore` exclusions. `--refresh` on `nano context` rebuilds parsed facts from current files; normal queries also verify current source before returning evidence. `--json`, `--top`, and `--max-output-bytes` control agent-facing output.
+
+```bash
+dhruv nano context "Fix token refresh in src/auth/token.ts" --json
+dhruv nano context "Find the parser" --scope src --refresh
+dhruv nano index --json
+dhruv nano status
+dhruv nano purge
+```
 
 ```bash
 # Understand and plan

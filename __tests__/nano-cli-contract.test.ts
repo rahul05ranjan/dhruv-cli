@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -60,12 +60,48 @@ describe('Nano CLI contract', () => {
 
   it('exposes Nano in help and completion', () => {
     expect(run(project, '--help')).toContain('nano');
-    expect(run(project, 'nano', '--help')).toContain('context');
-    expect(run(project, 'completion', 'bash')).toContain('commands="context"');
+    const nanoHelp = run(project, 'nano', '--help');
+    const bash = run(project, 'completion', 'bash');
+    const zsh = run(project, 'completion', 'zsh');
+    const fish = run(project, 'completion', 'fish');
+    for (const command of ['context', 'index', 'status', 'purge']) {
+      expect(nanoHelp).toContain(command);
+      expect(bash).toContain(`"${command}"`);
+      expect(zsh).toContain(command);
+      expect(fish).toContain(command);
+    }
+    expect(run(project, 'nano', 'context', '--help')).toContain('--refresh');
+    expect(bash).toContain('--refresh');
   });
 });
 
 describe('Nano repository discovery', () => {
+  it('applies parent Git ignores when --root selects a Git subdirectory', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'dhruv-nano-parent-git-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repository });
+      mkdirSync(join(repository, 'package'));
+      writeFileSync(join(repository, '.gitignore'), 'package/ignored.ts\npackage/ignored-dir/\n');
+      mkdirSync(join(repository, 'package/ignored-dir'));
+      writeFileSync(join(repository, 'package/visible.ts'), 'export const marker = 1;\n');
+      writeFileSync(join(repository, 'package/ignored.ts'), 'export const marker = 2;\n');
+      writeFileSync(join(repository, 'package/ignored-dir/hidden.ts'), 'export const marker = 3;\n');
+      execFileSync('git', ['add', '-f', 'package/ignored.ts'], { cwd: repository });
+      const packageRoot = join(repository, 'package');
+      for (const command of ['context', 'index'] as const) {
+        const args = command === 'context' ? ['context', 'marker'] : ['index'];
+        const result = JSON.parse(run(repository, 'nano', ...args, '--root', packageRoot, '--json')) as {
+          root: string; files?: { path: string }[]; coverage: { discovered: number };
+        };
+        expect(result.root).toBe(realpathSync(packageRoot));
+        expect(result.coverage.discovered).toBe(1);
+        if (result.files) expect(result.files.map((file) => file.path)).toEqual(['visible.ts']);
+      }
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+
   it('finds dirty tracked and untracked files while applying Git, Nano, generated, and sensitive exclusions', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'dhruv-nano-git-'));
     const external = mkdtempSync(join(tmpdir(), 'dhruv-nano-external-'));

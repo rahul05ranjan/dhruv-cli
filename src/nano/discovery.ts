@@ -73,7 +73,9 @@ export function resolveWorkspace(request: { cwd?: string; root?: string; scope?:
   const root = canonicalDirectory(request.root ? path.resolve(cwd, request.root) : (containingGitRoot ?? cwd), 'Workspace root');
   const selectedGitRoot = gitRoot(root);
   if (!selectedGitRoot && hasGitMarker(root)) throw new Error('Git root discovery failed.');
-  const git = selectedGitRoot === root;
+  // Git commands run from root and return paths relative to it, even when
+  // the selected workspace is a subdirectory of the repository.
+  const git = selectedGitRoot !== undefined;
   let scope = root;
   if (request.scope) {
     if (request.scope.split(/[\\/]/).includes('..')) throw new Error('Scope must be inside the workspace root.');

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
+import { parseSyntax } from './syntax.js';
 
 /** Persistable facts about one source file. No source body or task text is retained. */
 export interface NanoParsedSource {
@@ -35,13 +36,7 @@ export function parseSource(relative: string, source: string): NanoParsedSource 
   const language = sourceLanguage(relative);
   if (language === 'unsupported') return { path: relative, fingerprint, language, partial: false, symbols: [] };
 
-  const extension = relative.toLowerCase();
-  const scriptKind = extension.endsWith('.tsx') ? ts.ScriptKind.TSX
-    : extension.endsWith('.jsx') ? ts.ScriptKind.JSX
-      : language === 'typescript' ? ts.ScriptKind.TS : ts.ScriptKind.JS;
-  const file = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true, scriptKind);
-  const diagnostics = (file as ts.SourceFile & { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
-  const firstError = diagnostics.reduce((min, diagnostic) => Math.min(min, diagnostic.start ?? source.length), source.length);
+  const { file, diagnostics, firstError } = parseSyntax(relative, source);
   const firstErrorLine = file.getLineAndCharacterOfPosition(firstError).line + 1;
   const symbols: NanoSymbolDeclaration[] = [];
   const record = (node: ts.Node, name: ts.Node | undefined, declarationKind: NanoSymbolDeclaration['declarationKind']): void => {

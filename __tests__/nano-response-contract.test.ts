@@ -12,7 +12,7 @@ const loader = pathToFileURL(resolve(project, 'node_modules/ts-node/esm.mjs')).h
 interface Response {
   schemaVersion: number;
   files: { path: string; rankingSignal: number; evidence: { kind: string; line?: number; startLine?: number }[] }[];
-  index: { identity: string | null; freshness: string };
+  index: { identity: string | null; freshness: string; reused: number };
   coverage: { partial: boolean };
   truncated: boolean;
   warnings: string[];
@@ -32,6 +32,29 @@ function context(cwd: string, task: string, ...options: string[]): Response {
 }
 
 describe('Nano bounded response contract', () => {
+  it('does not promote filename prefixes or embedded path tokens as explicit matches', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'dhruv-nano-path-boundary-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: workspace });
+      mkdirSync(join(workspace, 'src'));
+      writeFileSync(join(workspace, 'src/store.ts'), '// store is mentioned here\n');
+      writeFileSync(join(workspace, 'src/store.tsx'), '// store component\n');
+      writeFileSync(join(workspace, 'src/prefixstore.ts'), '// store prefix\n');
+      const prefix = context(workspace, 'Inspect src/store.tsx');
+      expect(prefix.files[0].path).toBe('src/store.tsx');
+      expect(prefix.files.find((file) => file.path === 'src/store.ts')?.evidence).not.toContainEqual(expect.objectContaining({ kind: 'path', verified: true }));
+      const embedded = context(workspace, 'Inspect prefixstore.ts');
+      expect(embedded.files[0].path).toBe('src/prefixstore.ts');
+      expect(embedded.files.find((file) => file.path === 'src/store.ts')?.evidence ?? []).not.toContainEqual(expect.objectContaining({ kind: 'path', verified: true }));
+      const refresh = context(workspace, 'Inspect src/store.tsx', '--refresh');
+      expect(refresh.files[0].path).toBe('src/store.tsx');
+      expect(refresh.index.identity).toBe(prefix.index.identity);
+      expect(refresh.index.reused).toBe(0);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('orders explicit verified paths and declarations before weak matches, with stable ranks and short weak output', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'dhruv-nano-response-'));
     try {

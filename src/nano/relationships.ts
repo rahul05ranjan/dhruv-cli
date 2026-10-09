@@ -1,5 +1,6 @@
 import path from 'node:path';
 import ts from 'typescript';
+import { parseSyntax } from './syntax.js';
 
 /** Persistable syntax facts. Paths are resolved later against the current permitted file set. */
 export interface NanoImportDeclaration {
@@ -55,18 +56,10 @@ const MAX_DIRECT_IMPORTERS = 12;
 const MAX_TESTS_PER_SOURCE = 12;
 const MAX_SUGGESTIONS = 40;
 
-function scriptKind(relative: string): ts.ScriptKind {
-  if (relative.endsWith('.tsx')) return ts.ScriptKind.TSX;
-  if (relative.endsWith('.jsx')) return ts.ScriptKind.JSX;
-  return /\.(?:ts|mts|cts)$/.test(relative) ? ts.ScriptKind.TS : ts.ScriptKind.JS;
-}
-
 /** Records literal, static import sites without loading the imported module. */
 export function parseLocalImports(relative: string, source: string): NanoImportDeclaration[] {
   if (!/\.(?:[cm]?ts|tsx|[cm]?js|jsx)$/i.test(relative)) return [];
-  const file = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true, scriptKind(relative));
-  const diagnostics = (file as ts.SourceFile & { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
-  const firstError = diagnostics.reduce((min, item) => Math.min(min, item.start ?? source.length), source.length);
+  const { file, firstError } = parseSyntax(relative, source);
   const found: NanoImportDeclaration[] = [];
   const record = (literal: ts.Expression | undefined, kind: NanoImportDeclaration['kind']): void => {
     if (!literal || !ts.isStringLiteral(literal) || literal.getStart(file) >= firstError) return;
