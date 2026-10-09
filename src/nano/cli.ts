@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { context, type NanoContextResponse } from './context.js';
 import { resolveWorkspace } from './discovery.js';
 import { purgeIndex, refreshIndex, type NanoIndexReport } from './index.js';
+import { nanoCommandOptions, type NanoCommandName } from './command-options.js';
 
 interface ContextOptions {
   json?: boolean;
@@ -11,6 +12,7 @@ interface ContextOptions {
   maxOutputBytes?: string;
   maxRefreshFiles?: string;
   maxRefreshBytes?: string;
+  refresh?: boolean;
 }
 
 function printReport(report: NanoIndexReport, json?: boolean): void {
@@ -40,12 +42,10 @@ function runIndexCommand(kind: 'index' | 'status' | 'purge', options: ContextOpt
   }
 }
 
-function addIndexOptions(command: Command, refresh: boolean): Command {
-  command.option('--json', 'Emit one versioned JSON response')
-    .option('--root <path>', 'Workspace root (defaults to the containing Git repository)')
-    .option('--scope <path>', 'Limit the index to a directory inside the workspace root');
-  if (refresh) command.option('--max-refresh-files <count>', 'Maximum files verified during refresh')
-    .option('--max-refresh-bytes <count>', 'Maximum source bytes read during refresh');
+function addNanoOptions(command: Command, name: NanoCommandName): Command {
+  for (const option of nanoCommandOptions[name]) {
+    command.option(`${option.flag}${option.valueName ? ` <${option.valueName}>` : ''}`, option.description);
+  }
   return command;
 }
 
@@ -66,23 +66,17 @@ function printText(response: NanoContextResponse): void {
 /** Registration is shared by the isolated entry path and ordinary command help. */
 export function registerNanoCommands(program: Command): void {
   const nano = program.command('nano').description('Local repository context discovery');
-  nano.command('context')
+  addNanoOptions(nano.command('context')
     .description('Find on-disk files relevant to a task without a model')
-    .argument('<task>', 'Task or question to locate files for')
-    .option('--json', 'Emit one versioned JSON response')
-    .option('--root <path>', 'Workspace root (defaults to the containing Git repository)')
-    .option('--scope <path>', 'Limit results to a directory inside the workspace root')
-    .option('--top <count>', 'Maximum number of files, from 1 to 30')
-    .option('--max-output-bytes <count>', 'Maximum UTF-8 bytes in a JSON context response (1024 to 1048576)')
-    .option('--max-refresh-files <count>', 'Maximum files verified during refresh')
-    .option('--max-refresh-bytes <count>', 'Maximum source bytes read during refresh')
+    .argument('<task>', 'Task or question to locate files for'), 'context')
     .addHelpText('after', '\nExample:\n  $ dhruv nano context "Fix token refresh in src/auth/token.ts" --json')
     .action((task: string, options: ContextOptions) => {
       try {
         const response = context({ task, root: options.root, scope: options.scope, top: options.top === undefined ? undefined : Number(options.top),
           maxOutputBytes: options.maxOutputBytes === undefined ? undefined : Number(options.maxOutputBytes),
           maxRefreshFiles: options.maxRefreshFiles === undefined ? undefined : Number(options.maxRefreshFiles),
-          maxRefreshBytes: options.maxRefreshBytes === undefined ? undefined : Number(options.maxRefreshBytes) });
+          maxRefreshBytes: options.maxRefreshBytes === undefined ? undefined : Number(options.maxRefreshBytes),
+          refresh: options.refresh });
         if (options.json) console.log(JSON.stringify(response));
         else printText(response);
       } catch (error) {
@@ -90,11 +84,11 @@ export function registerNanoCommands(program: Command): void {
         process.exitCode = 2;
       }
     });
-  addIndexOptions(nano.command('index').description('Build or refresh the local Nano index'), true)
+  addNanoOptions(nano.command('index').description('Build or refresh the local Nano index'), 'index')
     .action((options: ContextOptions) => runIndexCommand('index', options));
-  addIndexOptions(nano.command('status').description('Inspect local Nano index freshness'), true)
+  addNanoOptions(nano.command('status').description('Inspect local Nano index freshness'), 'status')
     .action((options: ContextOptions) => runIndexCommand('status', options));
-  addIndexOptions(nano.command('purge').description('Remove the local Nano index'), false)
+  addNanoOptions(nano.command('purge').description('Remove the local Nano index'), 'purge')
     .action((options: ContextOptions) => runIndexCommand('purge', options));
 }
 

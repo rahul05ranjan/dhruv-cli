@@ -55,6 +55,7 @@ export interface RefreshOptions {
   maxFiles?: number;
   maxBytes?: number;
   persist?: boolean;
+  force?: boolean;
 }
 
 function sha256(value: string): string {
@@ -177,7 +178,7 @@ export function refreshIndex(workspace: NanoWorkspace, options: RefreshOptions =
       bytes += Buffer.byteLength(source, 'utf8');
       const fingerprint = sourceFingerprint(source);
       const old = oldFiles.get(relative);
-      const parsed = old?.fingerprint === fingerprint && old.size === stat.size ? old.parsed : parseSource(relative, source);
+      const parsed = !options.force && old?.fingerprint === fingerprint && old.size === stat.size ? old.parsed : parseSource(relative, source);
       if (old && parsed === old.parsed) reused++;
       if (parsed.partial) {
         evidencePartial = true;
