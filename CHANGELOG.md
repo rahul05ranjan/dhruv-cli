@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.13.0...v1.14.0) (2026-10-09)
+
+
+### Features
+
+* repeatable dhruv check for committed changes ([84fe1ff](https://github.com/rahul05ranjan/dhruv-cli/commit/84fe1ff3366a42c896e99199fcc8b4f4b44ca9c3))
+
 # [1.13.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.12.0...v1.13.0) (2026-10-09)
 
 
