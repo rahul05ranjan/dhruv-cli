@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import { registerBuiltInCommands } from './commands/register-built-in-commands.js';
+import { applyGlobalOptions } from './commands/global-options.js';
 import { registerNanoCommands } from './nano/cli.js';
 import { createRequire } from 'module';
 import { logger, logCommand, logInfo, logError } from './core/logger.js';
@@ -22,19 +23,7 @@ program
 registerBuiltInCommands(program);
 
 program
-  .hook('preAction', async (thisCommand) => {
-    const opts = thisCommand.opts();
-    if (opts.model || opts.verbose || opts.json || opts.timeout) {
-      const config: Record<string, unknown> = {};
-      if (opts.model) config.model = opts.model;
-      if (opts.verbose) config.verbose = true;
-      if (opts.json) config.responseFormat = 'json';
-      if (opts.timeout) config.timeoutMs = Number(opts.timeout);
-      // Set in-memory config overrides for the session
-      const configModule = await import('./config/config.js');
-      configModule.setSessionConfig(config);
-    }
-  });
+  .hook('preAction', (thisCommand) => applyGlobalOptions(thisCommand.opts()));
 
 async function loadPlugins(program: unknown) {
   const PLUGIN_DIR = path.join(process.cwd(), 'plugins');

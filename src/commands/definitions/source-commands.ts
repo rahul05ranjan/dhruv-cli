@@ -2,6 +2,7 @@ import type { BuiltInCommand } from '../built-in-commands.js';
 import { review, type ReviewOptions } from '../review.js';
 import { optimize } from '../optimize.js';
 import { securityCheck, type SecurityCheckOptions } from '../security-check.js';
+import { checkCommand } from './check-command.js';
 import { generate, type GenerateOptions } from '../generate.js';
 
 /** Suggested generate types for the menu and completion. The command line accepts any type. */
@@ -53,4 +54,5 @@ export const sourceCommands: readonly BuiltInCommand[] = [
     ],
     run: ({ type = '', target = '' }, options) => generate(type, target, options as GenerateOptions),
   },
+  checkCommand,
 ];

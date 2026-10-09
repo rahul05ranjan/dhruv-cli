@@ -41,7 +41,7 @@ export interface CommandSpec {
 }
 
 /** Maps typed AI errors to user-facing hints — once, not per command. */
-function describeAIError(error: unknown, model: string): string {
+export function describeAIError(error: unknown, model: string): string {
   if (!error || typeof error !== 'object' || !('kind' in error)) {
     const msg = error instanceof Error ? error.message : String(error);
     if (/econnrefused|failed to connect|fetch failed/i.test(msg)) {

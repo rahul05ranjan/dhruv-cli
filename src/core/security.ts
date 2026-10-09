@@ -25,7 +25,7 @@ export class SecurityManager {
       maxInputLength: parseInt(process.env.DHRUV_MAX_INPUT_LENGTH || '10000'),
       allowedCommands: [
         'explain', 'suggest', 'fix', 'review', 'optimize',
-        'security-check', 'generate', 'init', 'status',
+        'security-check', 'check', 'generate', 'init', 'status',
         'project-type', 'menu', 'completion', 'help'
       ],
       blockedPatterns: [
@@ -101,6 +101,12 @@ export class SecurityManager {
           .max(500)
           .pattern(/^[^<>&|;$`]*$/)
           .required()
+      }),
+
+      // `check` is authorized only for resolved commit IDs, never a free-form ref.
+      check: Joi.object({
+        base: Joi.string().pattern(/^[0-9a-f]{40,64}$/).required(),
+        head: Joi.string().pattern(/^[0-9a-f]{40,64}$/).required()
       })
     };
   }

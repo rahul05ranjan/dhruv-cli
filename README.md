@@ -80,6 +80,7 @@ Dhruv requires Node.js 20.19 or newer. The default model is `gemma3:270m`; choos
 | `dhruv explain <query>` | Explain a concept, command, or unfamiliar error |
 | `dhruv fix <query>` | Analyze a coding issue and propose a fix |
 | `dhruv review <file-or-dir>` | Review up to ten code files for quality and maintainability; add `--diff` for uncommitted changes |
+| `dhruv check --base <git-ref>` | Review the committed changes on your branch: findings on changed lines, a coverage report, and versioned JSON for CI ([guide](docs/check.md)) |
 | `dhruv optimize <file>` | Find actionable improvements for source or configuration files |
 | `dhruv security-check [file-or-dir]` | Run a redacted local security analysis; add `--strict` for CI failure on high-confidence findings |
 | `dhruv generate <type> <target>` | Preview generated tests by default; use `--apply`, `--output`, or `--overwrite` to write safely |
@@ -132,7 +133,8 @@ dhruv suggest "deploy a React app to Vercel"
 
 # Improve an existing project
 dhruv review src/
-dhruv review --diff .
+dhruv review --diff .                           # uncommitted edits
+dhruv check --base origin/main                  # committed changes on this branch
 dhruv optimize package.json
 dhruv security-check src/
 dhruv security-check src/ --strict
@@ -148,6 +150,18 @@ dhruv generate tests src/utils/helpers.js --apply
 dhruv completion zsh > ~/.zsh/completions/_dhruv
 ```
 
+### Review a branch before you merge it
+
+`dhruv check` reviews the commits on your branch that are not on the base branch. It reports findings only on lines the branch changed, says which files it analyzed and which it skipped, and gives CI one JSON object with documented exit codes. Findings are advisory.
+
+```bash
+git fetch origin
+dhruv check --base origin/main
+dhruv check --base origin/main --json --strict-coverage > dhruv-check.json
+```
+
+Use `dhruv review --diff .` for edits you have not committed yet. The [`dhruv check` guide](docs/check.md) covers the policy file, the JSON result, exit codes, a company-operated Ollama endpoint, and a GitHub Actions workflow.
+
 ## Configuration that stays out of your way
 
 Run `dhruv init` to set the Ollama model, response format, verbosity, terminal theme, and whether settings are project-local or user-global. Local configuration is stored in `.dhruv-config.json`; global settings live under your user config directory.
@@ -158,6 +172,13 @@ For one-off runs, use global flags:
 dhruv suggest "summarize this migration" --model llama3.2 --json
 dhruv review src/ --verbose
 dhruv explain "what changed?" --timeout 60000
+```
+
+Dhruv talks to Ollama at `http://127.0.0.1:11434`. To use a server on another machine, set `OLLAMA_HOST` to its URL:
+
+```bash
+export OLLAMA_HOST=http://ollama.internal:11434
+dhruv status
 ```
 
 ## Extend it with plugins
@@ -180,12 +201,15 @@ Then run:
 dhruv hello-plugin
 ```
 
+Plugins run with your permissions as soon as Dhruv starts in that directory. `dhruv check` never loads them, so it can review a change you do not trust.
+
 ## Documentation & project guides
 
 | Resource | Link |
 | --- | --- |
 | Product site | [rahul05ranjan.github.io/dhruv-cli](https://rahul05ranjan.github.io/dhruv-cli/) |
 | API reference | [Generated TypeDoc](https://rahul05ranjan.github.io/dhruv-cli/api/) |
+| Committed change review | [docs/check.md](docs/check.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Publishing notes | [docs/publishing-fix.md](docs/publishing-fix.md) |

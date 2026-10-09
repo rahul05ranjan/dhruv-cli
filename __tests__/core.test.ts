@@ -3,7 +3,9 @@ import {
   ask,
   listModels,
   setAIClient,
+  getOllamaStatus,
   InMemoryAIClient,
+  OllamaAIClient,
 } from '../src/core/ai';
 import {
   loadConfig,
@@ -17,6 +19,8 @@ import { detectProjectType, detectProjectDetails } from '../src/utils/projectTyp
 import { getSystemMessage } from '../src/core/prompts';
 import { runCommand } from '../src/core/command-runner';
 import fs from 'fs';
+import http from 'http';
+import type { AddressInfo } from 'net';
 import path from 'path';
 
 // chalk and ora are ESM-only and can't be loaded by the CJS test runtime.
@@ -366,6 +370,15 @@ describe('Dhruv CLI Core Systems', () => {
       expect(client.computations).toBe(before + 1);
     });
 
+    it('neither reads nor fills the cache for a request that opts out', async () => {
+      await ask({ prompt: 'hello', cache: false });
+      await ask({ prompt: 'hello', cache: false });
+      expect(client.computations).toBe(2);
+
+      await ask({ prompt: 'hello' });
+      expect(client.computations).toBe(3);
+    });
+
     it('surfaces model-not-found as a typed error', async () => {
       client.failures.set('missing-model', { kind: 'model-not-found', model: 'nope' });
       await expect(ask({ prompt: 'missing-model please' })).rejects.toMatchObject({
@@ -383,6 +396,53 @@ describe('Dhruv CLI Core Systems', () => {
     it('lists models through the interface', async () => {
       const models = await listModels();
       expect(models).toContain('test-model');
+    });
+  });
+
+  describe('AI module endpoint (HTTP adapter)', () => {
+    let server: http.Server;
+    let requests: Array<{ url?: string; body: string }>;
+
+    beforeEach(async () => {
+      requests = [];
+      server = http.createServer((request, response) => {
+        let body = '';
+        request.on('data', (chunk) => { body += chunk; });
+        request.on('end', () => {
+          requests.push({ url: request.url, body });
+          response.setHeader('Content-Type', 'application/json');
+          response.end(JSON.stringify(request.url === '/api/version' ? { version: '9.9.9' } : { response: 'from the configured endpoint' }));
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      process.env.OLLAMA_HOST = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+    });
+
+    afterEach(async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    it('sends generation to the OLLAMA_HOST endpoint the status probe reports', async () => {
+      const status = await getOllamaStatus();
+      const response = await new OllamaAIClient().ask({ prompt: 'hello', model: 'company-model', cache: false });
+
+      expect(status).toEqual({ endpoint: process.env.OLLAMA_HOST?.replace(/\/$/, ''), version: '9.9.9' });
+      expect(response).toBe('from the configured endpoint');
+      expect(requests.map((request) => request.url)).toEqual(['/api/version', '/api/generate']);
+      expect(JSON.parse(requests[1].body)).toMatchObject({ model: 'company-model', prompt: 'hello' });
+    });
+
+    it('falls back to the local default when OLLAMA_HOST is empty', async () => {
+      process.env.OLLAMA_HOST = '';
+      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+
+      try {
+        expect(await getOllamaStatus()).toEqual({ endpoint: 'http://127.0.0.1:11434' });
+        expect(fetchSpy).toHaveBeenCalledWith('http://127.0.0.1:11434/api/version', expect.anything());
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 
