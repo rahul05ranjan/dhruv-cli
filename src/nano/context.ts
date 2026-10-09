@@ -10,6 +10,7 @@ export interface NanoLexicalEvidence {
   basis: 'lexical';
   detail: string;
   line?: number;
+  verified?: true;
 }
 
 export interface NanoSymbolEvidence extends NanoSymbolDeclaration {
@@ -25,7 +26,8 @@ export type NanoEvidence = NanoLexicalEvidence | NanoSymbolEvidence | NanoImport
 
 export interface NanoFile {
   path: string;
-  score: number;
+  /** A relative ordering signal, never a correctness probability. */
+  rankingSignal: number;
   evidence: NanoEvidence[];
 }
 
@@ -46,11 +48,18 @@ export interface NanoContextRequest {
   root?: string;
   scope?: string;
   top?: number;
+  maxOutputBytes?: number;
   maxRefreshFiles?: number;
   maxRefreshBytes?: number;
 }
 
 const MAX_SOURCE_BYTES = 1024 * 1024;
+const DEFAULT_MAX_OUTPUT_BYTES = 16 * 1024;
+const MIN_OUTPUT_BYTES = 1024;
+const MAX_OUTPUT_BYTES = 1024 * 1024;
+const OUTPUT_WARNING = 'Output byte limit reached; results or evidence were truncated.';
+const WEAK_WARNING = 'Only weak lexical matches were found; read source to establish relevance.';
+const EMPTY_COVERAGE_WARNING = 'Coverage found no matching evidence in the scanned files.';
 const STOP_WORDS = new Set(['a', 'an', 'and', 'at', 'by', 'for', 'from', 'in', 'is', 'of', 'on', 'or', 'the', 'to', 'with', 'fix', 'add', 'find', 'file', 'files', 'where', 'which', 'how', 'please', 'src', 'ts', 'tsx', 'js', 'jsx']);
 
 function taskTerms(task: string): string[] {
@@ -75,6 +84,10 @@ export function context(request: NanoContextRequest): NanoContextResponse {
   const { root } = workspace;
   const top = request.top ?? 10;
   if (!Number.isInteger(top) || top < 1 || top > 30) throw new Error('Top must be an integer from 1 to 30.');
+  const maxOutputBytes = request.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < MIN_OUTPUT_BYTES || maxOutputBytes > MAX_OUTPUT_BYTES) {
+    throw new Error(`Output byte limit must be an integer from ${MIN_OUTPUT_BYTES} to ${MAX_OUTPUT_BYTES}.`);
+  }
 
   const refreshed = refreshIndex(workspace, { maxFiles: request.maxRefreshFiles, maxBytes: request.maxRefreshBytes });
   const warnings: string[] = [...refreshed.report.warnings];
@@ -105,7 +118,7 @@ export function context(request: NanoContextRequest): NanoContextResponse {
         (basename.includes('.') && normalizedTask.includes(basename));
       let score = explicit ? 1000 : 0;
       const evidence: NanoEvidence[] = [];
-      if (explicit) evidence.push({ kind: 'path', basis: 'lexical', detail: 'Task names this on-disk path.' });
+      if (explicit) evidence.push({ kind: 'path', basis: 'lexical', verified: true, detail: 'Task names this on-disk path.' });
       let explicitSymbol = false;
       for (const declaration of parsed.symbols) {
         if (!taskNamesSymbol(request.task, declaration.symbol)) continue;
@@ -137,7 +150,7 @@ export function context(request: NanoContextRequest): NanoContextResponse {
         if (parsed.language === 'unsupported' && !warnings.includes('Some matched files use unsupported languages; path and text evidence only.')) {
           warnings.push('Some matched files use unsupported languages; path and text evidence only.');
         }
-        files.push({ path: slashPath, score, evidence, tier: explicit ? 2 : explicitSymbol ? 1 : 0, fingerprint: parsed.fingerprint });
+        files.push({ path: slashPath, rankingSignal: score, evidence, tier: explicit ? 2 : explicitSymbol ? 1 : 0, fingerprint: parsed.fingerprint });
       }
     } catch {
       partial = true;
@@ -151,20 +164,23 @@ export function context(request: NanoContextRequest): NanoContextResponse {
   for (const suggestion of relationships.suggestions) {
     const existing = files.find((file) => file.path === suggestion.path);
     if (existing) {
-      existing.score += suggestion.score;
+      existing.rankingSignal += suggestion.score;
       existing.evidence.push(suggestion.evidence);
     } else {
       const fingerprint = scannedFingerprints.get(suggestion.path);
       if (fingerprint === undefined) continue;
-      files.push({ path: suggestion.path, score: suggestion.score, tier: 0,
+      files.push({ path: suggestion.path, rankingSignal: suggestion.score, tier: 0,
         fingerprint, evidence: [suggestion.evidence] });
     }
   }
 
-  files.sort((a, b) => b.tier - a.tier || b.score - a.score || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  files.sort((a, b) => b.tier - a.tier || b.rankingSignal - a.rankingSignal || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const onlyWeak = files.length > 0 && files.every((file) => file.tier === 0 &&
+    file.evidence.every((item) => item.kind === 'path' || item.kind === 'text'));
+  const resultLimit = onlyWeak ? Math.min(top, 3) : top;
   const currentFiles: NanoFile[] = [];
   for (const file of files) {
-    if (currentFiles.length >= top) break;
+    if (currentFiles.length >= resultLimit) break;
     try {
       const absolute = safeFile(workspace, file.path);
       if (!absolute) throw new Error('Source changed during verification.');
@@ -194,15 +210,19 @@ export function context(request: NanoContextRequest): NanoContextResponse {
           if (!hasCurrentImport(site, currentSources, new Set(importsByFile.keys()))) throw new Error('Import changed during verification.');
         }
       }
-      currentFiles.push({ path: file.path, score: file.score, evidence: file.evidence });
+      currentFiles.push({ path: file.path, rankingSignal: file.rankingSignal, evidence: file.evidence });
     } catch {
       partial = true;
       if (!warnings.includes('Some source locations changed before final verification.')) warnings.push('Some source locations changed before final verification.');
     }
   }
   if (partial) warnings.push('Coverage is partial: some files could not be scanned.');
-  if (currentFiles.length === 0) warnings.push('No supported file match was found for this task.');
-  return {
+  if (onlyWeak) warnings.push(WEAK_WARNING);
+  if (currentFiles.length === 0) {
+    warnings.push('No supported file match was found for this task.');
+    warnings.push(EMPTY_COVERAGE_WARNING);
+  }
+  const response: NanoContextResponse = {
     schemaVersion: 1,
     command: 'nano context',
     root,
@@ -212,4 +232,28 @@ export function context(request: NanoContextRequest): NanoContextResponse {
     warnings,
     index: { identity: refreshed.report.identity, freshness: partial ? 'partial' : refreshed.report.freshness, reused: refreshed.report.coverage.reused },
   };
+  // Measure the serialized document, including evidence and metadata. Keep the
+  // highest-ranked files and earliest evidence when the byte budget is tight.
+  const size = (): number => Buffer.byteLength(JSON.stringify(response), 'utf8');
+  if (size() > maxOutputBytes) {
+    response.truncated = true;
+    response.warnings.push(OUTPUT_WARNING);
+    while (size() > maxOutputBytes && response.files.length > 0) {
+      const last = response.files[response.files.length - 1];
+      if (last.evidence.length > 1) last.evidence.pop();
+      else response.files.pop();
+    }
+    // Diagnostic warnings have bounded priority below the coverage and budget
+    // warnings; preserve those even for a highly constrained valid response.
+    const essential = new Set([OUTPUT_WARNING, WEAK_WARNING, EMPTY_COVERAGE_WARNING,
+      'Coverage is partial: some files could not be scanned.',
+      'No supported file match was found for this task.']);
+    while (size() > maxOutputBytes) {
+      const index = response.warnings.findIndex((warning) => !essential.has(warning));
+      if (index < 0) break;
+      response.warnings.splice(index, 1);
+    }
+    if (size() > maxOutputBytes) throw new Error('Output byte limit is too small for this workspace response.');
+  }
+  return response;
 }

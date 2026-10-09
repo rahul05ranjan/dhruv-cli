@@ -8,6 +8,7 @@ interface ContextOptions {
   root?: string;
   scope?: string;
   top?: string;
+  maxOutputBytes?: string;
   maxRefreshFiles?: string;
   maxRefreshBytes?: string;
 }
@@ -72,12 +73,14 @@ export function registerNanoCommands(program: Command): void {
     .option('--root <path>', 'Workspace root (defaults to the containing Git repository)')
     .option('--scope <path>', 'Limit results to a directory inside the workspace root')
     .option('--top <count>', 'Maximum number of files, from 1 to 30')
+    .option('--max-output-bytes <count>', 'Maximum UTF-8 bytes in a JSON context response (1024 to 1048576)')
     .option('--max-refresh-files <count>', 'Maximum files verified during refresh')
     .option('--max-refresh-bytes <count>', 'Maximum source bytes read during refresh')
     .addHelpText('after', '\nExample:\n  $ dhruv nano context "Fix token refresh in src/auth/token.ts" --json')
     .action((task: string, options: ContextOptions) => {
       try {
         const response = context({ task, root: options.root, scope: options.scope, top: options.top === undefined ? undefined : Number(options.top),
+          maxOutputBytes: options.maxOutputBytes === undefined ? undefined : Number(options.maxOutputBytes),
           maxRefreshFiles: options.maxRefreshFiles === undefined ? undefined : Number(options.maxRefreshFiles),
           maxRefreshBytes: options.maxRefreshBytes === undefined ? undefined : Number(options.maxRefreshBytes) });
         if (options.json) console.log(JSON.stringify(response));

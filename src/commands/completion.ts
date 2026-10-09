@@ -88,7 +88,7 @@ function bashScript(targets: CompletionTarget[], commands: string, options: stri
         options="--help"
         if [[ "\${COMP_WORDS[2]}" == "context" ]]; then
           commands=""
-          options="--help --json --root --scope --top"
+          options="--help --json --root --scope --top --max-output-bytes --max-refresh-files --max-refresh-bytes"
         fi
         ;;
 ${targets.map((target) => `      ${target.name})
@@ -129,7 +129,7 @@ function zshOptionSpecs(flag: CompletionFlag): string[] {
 }
 
 function zshBranch(target: CompletionTarget): string | undefined {
-  if (target.name === 'nano') return `        nano) _arguments '1:subcommand:(context)' '--help[display help for command]' '--json[Emit one versioned JSON response]' '--root[Workspace root]:path:_files' '--scope[Limit to directory]:path:_files' '--top[Maximum files]:count:' ;;`;
+  if (target.name === 'nano') return `        nano) _arguments '1:subcommand:(context)' '--help[display help for command]' '--json[Emit one versioned JSON response]' '--root[Workspace root]:path:_files' '--scope[Limit to directory]:path:_files' '--top[Maximum files]:count:' '--max-output-bytes[Maximum JSON bytes]:count:' '--max-refresh-files[Maximum refreshed files]:count:' '--max-refresh-bytes[Maximum refreshed bytes]:count:' ;;`;
   const specs = [
     ...(target.choices ? [`'${target.choices.position}:${target.choices.name}:(${target.choices.values.join(' ')})'`] : []),
     ...(target.completeFiles ? [`'*:file:_files'`] : []),
@@ -179,7 +179,7 @@ function fishScript(targets: CompletionTarget[], commands: string, options: stri
     }
   }
   lines.push("complete -c dhruv -f -n '__fish_seen_subcommand_from nano; and not __fish_seen_subcommand_from context' -a 'context'");
-  for (const flag of ['json', 'root', 'scope', 'top']) {
+  for (const flag of ['json', 'root', 'scope', 'top', 'max-output-bytes', 'max-refresh-files', 'max-refresh-bytes']) {
     lines.push(`complete -c dhruv -n '__fish_seen_subcommand_from nano; and __fish_seen_subcommand_from context' -l ${flag}${flag === 'json' ? '' : ' -r'}`);
   }
   const otherCommands = `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${targets.map((target) => target.name).join(' ')}`;
