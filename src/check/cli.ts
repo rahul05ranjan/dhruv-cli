@@ -1,0 +1,19 @@
+/**
+ * Entry point for `dhruv check`. It builds a bare program with only `check` and the
+ * global options, so repository-local Plugin Commands and the full startup
+ * sequence never run before a possibly untrusted change is reviewed.
+ */
+import { Command } from 'commander';
+import { checkCommand } from '../commands/definitions/check-command.js';
+import { applyGlobalOptions, globalOptions } from '../commands/global-options.js';
+
+export async function runCheckCli(argv: string[]): Promise<void> {
+  const program = new Command().name('dhruv');
+  const command = program.command(checkCommand.name).description(checkCommand.description);
+  for (const option of checkCommand.options ?? []) command.option(option.flags, option.description);
+  command.addHelpText('after', `\nExamples:\n${(checkCommand.examples ?? []).map((example) => `  $ ${example}`).join('\n')}`);
+  command.action((options: Record<string, unknown>) => checkCommand.run({}, options));
+  for (const option of globalOptions) program.option(option.flags, option.description);
+  program.hook('preAction', (thisCommand) => applyGlobalOptions(thisCommand.opts()));
+  await program.parseAsync(argv);
+}

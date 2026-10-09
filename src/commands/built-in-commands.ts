@@ -52,13 +52,7 @@ export interface BuiltInCommand {
   run(args: BuiltInCommandArgs, options: BuiltInCommandOptions): Promise<void> | void;
 }
 
-/** Program-level options shared by every command. */
-export const globalOptions: readonly BuiltInOption[] = [
-  { flags: '--model <model>', description: 'Set Ollama model' },
-  { flags: '--verbose', description: 'Enable verbose output' },
-  { flags: '--json', description: 'Output in JSON format' },
-  { flags: '--timeout <milliseconds>', description: 'Set the AI request timeout' },
-];
+export { globalOptions } from './global-options.js';
 
 export const builtInCommands: readonly BuiltInCommand[] = [
   ...queryCommands,
