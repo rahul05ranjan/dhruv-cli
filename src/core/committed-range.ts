@@ -68,7 +68,8 @@ export const EXCLUSION_REASONS = [
 
 export type ExclusionReason = (typeof EXCLUSION_REASONS)[number];
 
-const COVERAGE_BREAKING: readonly ExclusionReason[] = ['unreadable', 'oversized', 'file-limit', 'total-limit', 'truncated'];
+/** The reasons that mean relevant source went unreviewed. */
+export const COVERAGE_BREAKING: readonly ExclusionReason[] = ['unreadable', 'oversized', 'file-limit', 'total-limit', 'truncated'];
 
 export interface RangeExclusion {
   path: string;
