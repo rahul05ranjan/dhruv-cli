@@ -12,6 +12,7 @@ export async function runCheckCli(argv: string[]): Promise<void> {
   const command = program.command(checkCommand.name).description(checkCommand.description);
   for (const option of checkCommand.options ?? []) command.option(option.flags, option.description);
   command.addHelpText('after', `\nExamples:\n${(checkCommand.examples ?? []).map((example) => `  $ ${example}`).join('\n')}`);
+  command.addHelpText('after', `\nNotes:\n${(checkCommand.notes ?? []).map((note) => `  ${note}`).join('\n')}`);
   command.action((options: Record<string, unknown>) => checkCommand.run({}, options));
   for (const option of globalOptions) program.option(option.flags, option.description);
   program.hook('preAction', (thisCommand) => applyGlobalOptions(thisCommand.opts()));

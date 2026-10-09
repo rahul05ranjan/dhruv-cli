@@ -106,6 +106,7 @@ describe.each(definitions)('Built-in Command %s', (name, definition) => {
       argument.defaultValue === undefined ? undefined : `(default: "${argument.defaultValue}")`,
     ].filter(Boolean).join(' ')));
     for (const example of definition.examples ?? []) expect(help).toContain(`  $ ${example}`);
+    for (const note of definition.notes ?? []) expect(help).toContain(`  ${note}`);
   });
 
   it('dispatches the command line to its definition', async () => {

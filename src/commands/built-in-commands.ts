@@ -46,6 +46,8 @@ export interface BuiltInCommand {
   options?: readonly BuiltInOption[];
   /** Help examples, without the leading `$ `. */
   examples?: readonly string[];
+  /** Help lines printed after the examples, for what the options alone do not say. */
+  notes?: readonly string[];
   /** Printed by the menu instead of running the command. */
   menuHint?: string;
   /** Runs the command. Args are keyed by argument name; the menu passes `{}` options. */

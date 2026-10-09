@@ -84,6 +84,9 @@ function registerBuiltInCommand(program: Command, definition: BuiltInCommand): v
   if (definition.examples?.length) {
     command.addHelpText('after', `\nExamples:\n${definition.examples.map((example) => `  $ ${example}`).join('\n')}`);
   }
+  if (definition.notes?.length) {
+    command.addHelpText('after', `\nNotes:\n${definition.notes.map((note) => `  ${note}`).join('\n')}`);
+  }
 
   // Commander calls the action with (...arguments, options, command).
   command.action((...values: unknown[]) => {
