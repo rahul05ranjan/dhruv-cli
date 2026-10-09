@@ -78,7 +78,7 @@ function taskNamesSymbol(task: string, symbol: string): boolean {
   return new RegExp(`(^|[^\\p{L}\\p{N}_$])${escaped}(?=$|[^\\p{L}\\p{N}_$])`, 'u').test(task);
 }
 
-export function context(request: NanoContextRequest): NanoContextResponse {
+function collectContext(request: NanoContextRequest): { response: NanoContextResponse; candidates: string[] } {
   if (!request.task.trim()) throw new Error('Task text is required.');
   const workspace = resolveWorkspace(request);
   const { root } = workspace;
@@ -175,6 +175,9 @@ export function context(request: NanoContextRequest): NanoContextResponse {
   }
 
   files.sort((a, b) => b.tier - a.tier || b.rankingSignal - a.rankingSignal || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  // Diagnostic-only candidate set for offline evaluation. It is never added to
+  // the bounded CLI response or persisted in the index.
+  const candidates = files.map((file) => file.path);
   const onlyWeak = files.length > 0 && files.every((file) => file.tier === 0 &&
     file.evidence.every((item) => item.kind === 'path' || item.kind === 'text'));
   const resultLimit = onlyWeak ? Math.min(top, 3) : top;
@@ -255,5 +258,14 @@ export function context(request: NanoContextRequest): NanoContextResponse {
     }
     if (size() > maxOutputBytes) throw new Error('Output byte limit is too small for this workspace response.');
   }
-  return response;
+  return { response, candidates };
+}
+
+export function context(request: NanoContextRequest): NanoContextResponse {
+  return collectContext(request).response;
+}
+
+/** Evaluation hook: candidates before top-k, verification, and byte limits. */
+export function contextWithCandidates(request: NanoContextRequest): { response: NanoContextResponse; candidates: string[] } {
+  return collectContext(request);
 }
