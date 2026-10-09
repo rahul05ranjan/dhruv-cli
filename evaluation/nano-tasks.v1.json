@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "labelPolicy": "Curated against the pinned snapshots by reading implementation and test imports. Gold paths are independently reasoned; no fix-commit changed-file list is used as complete truth. One reviewer; no second-person adjudication. Uncertain paths are disclosed and excluded from denominators.",
+  "repositories": [
+    {
+      "id": "dhruv",
+      "url": "https://github.com/rahul05ranjan/dhruv-cli.git",
+      "sha": "bac61383fa0018807f6046af4b2c3e627630b8d7",
+      "license": "MIT",
+      "tasks": [
+        { "id": "dhruv-token-context", "task": "Investigate Nano context ranking, verified symbols, and its response contract", "gold": [
+          { "path": "src/nano/context.ts", "reason": "Owns scoring and response assembly." },
+          { "path": "__tests__/nano-response-contract.test.ts", "reason": "Exercises bounded response and ranking contract." }
+        ], "uncertain": ["src/nano/symbols.ts"] },
+        { "id": "dhruv-index", "task": "Investigate Nano index refresh and persisted snapshot contract", "gold": [
+          { "path": "src/nano/index.ts", "reason": "Implements refresh and snapshot storage." },
+          { "path": "__tests__/nano-index-contract.test.ts", "reason": "Tests freshness and persisted snapshot behavior." }
+        ], "uncertain": ["src/nano/discovery.ts"] },
+        { "id": "dhruv-completion", "task": "Locate shell completion generation", "gold": [
+          { "path": "src/commands/completion.ts", "reason": "Generates completion scripts." }
+        ], "uncertain": ["__tests__/cli-contract.test.ts"] },
+        { "id": "dhruv-negative", "task": "Find the nonexistent quasarfling renderer", "gold": [], "negative": true, "reason": "Nonsense identifier absent from this snapshot." }
+      ]
+    },
+    {
+      "id": "commander",
+      "url": "https://github.com/tj/commander.js.git",
+      "sha": "ba6d13ddb4243e5913367734f8c159089ffe7834",
+      "license": "MIT",
+      "tasks": [
+        { "id": "commander-help", "task": "Investigate Command.configureHelp custom formatting and tests", "gold": [
+          { "path": "lib/command.js", "reason": "Command.configureHelp controls custom help configuration." },
+          { "path": "lib/help.js", "reason": "Help formatting implementation consumes the configuration." },
+          { "path": "tests/command.configureHelp.test.js", "reason": "Direct contract tests for configureHelp." }
+        ], "uncertain": ["tests/help.showGlobalOptions.test.js"] },
+        { "id": "commander-env", "task": "Investigate Option.env environment variable option handling and tests", "gold": [
+          { "path": "lib/option.js", "reason": "Option.env stores environment binding." },
+          { "path": "lib/command.js", "reason": "Command option processing reads environment values." },
+          { "path": "tests/options.env.test.js", "reason": "Tests environment option behavior." }
+        ], "uncertain": [] },
+        { "id": "commander-similar", "task": "Locate suggestSimilar unknown command suggestions", "gold": [
+          { "path": "lib/suggestSimilar.js", "reason": "Implements similarity suggestion algorithm." }
+        ], "uncertain": ["lib/command.js"] },
+        { "id": "commander-negative", "task": "Locate nonexistent quasarfling encryption handler", "gold": [], "negative": true, "reason": "No such identifier or handler in snapshot." }
+      ]
+    },
+    {
+      "id": "execa",
+      "url": "https://github.com/sindresorhus/execa.git",
+      "sha": "63ddae6aeb6934da06fdb3754647791e58cd87c3",
+      "license": "MIT",
+      "tasks": [
+        { "id": "execa-cwd", "task": "Investigate normalizeCwd current working directory option and tests", "gold": [
+          { "path": "lib/arguments/cwd.js", "reason": "Normalizes and validates the cwd option." },
+          { "path": "test/arguments/cwd.js", "reason": "Exercises cwd inputs." }
+        ], "uncertain": ["lib/arguments/options.js"] },
+        { "id": "execa-duplex", "task": "Investigate duplex stream conversion and tests", "gold": [
+          { "path": "lib/convert/duplex.js", "reason": "Implements duplex stream conversion." },
+          { "path": "test/convert/duplex.js", "reason": "Exercises duplex conversion behavior." }
+        ], "uncertain": ["lib/convert/shared.js"] },
+        { "id": "execa-file-url", "task": "Locate safeNormalizeFileUrl handling", "gold": [
+          { "path": "lib/arguments/file-url.js", "reason": "Defines file URL normalization." }
+        ], "uncertain": ["test/arguments/cwd.js"] },
+        { "id": "execa-negative", "task": "Find nonexistent quasarfling renderer", "gold": [], "negative": true, "reason": "Nonsense identifier absent from snapshot." }
+      ]
+    }
+  ]
+}

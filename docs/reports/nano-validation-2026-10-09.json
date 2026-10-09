@@ -1,0 +1,1752 @@
+{
+  "date": "2026-10-09T16:52:23.827Z",
+  "manifestSha256": "b30da074f31a3bc8074bb2d74486f922e342ef7cf170746639a228aff33eece1",
+  "packageSha256": "059b20338f10cc02fe36cc5a50aa8669d2c77c18164e08d606aa0979e1023931",
+  "packageBytes": 67949,
+  "node": "v24.14.0",
+  "os": "darwin 27.0.0",
+  "repositories": [
+    {
+      "id": "dhruv",
+      "sha": "bac61383fa0018807f6046af4b2c3e627630b8d7",
+      "tasks": [
+        {
+          "id": "dhruv-token-context",
+          "negative": false,
+          "gold": [
+            "src/nano/context.ts",
+            "__tests__/nano-response-contract.test.ts"
+          ],
+          "uncertain": [
+            "src/nano/symbols.ts"
+          ],
+          "candidates": 71,
+          "candidateHits": [
+            "src/nano/context.ts"
+          ],
+          "top10": [
+            "src/core/ai.ts",
+            "src/nano/context.ts",
+            "src/nano/cli.ts",
+            "src/commands/run.ts",
+            "src/core/command-runner.ts",
+            "src/nano/symbols.ts",
+            "src/core/intent-routing.ts",
+            "src/nano/index.ts",
+            "src/cli-main.ts",
+            "src/commands/generate.ts"
+          ],
+          "top10Hits": [
+            "src/nano/context.ts"
+          ],
+          "facts": [
+            {
+              "path": "src/core/ai.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/ai.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/ai.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/ai.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/ai.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/ai.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/run.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/run.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/run.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/command-runner.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/command-runner.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/command-runner.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/symbols.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/symbols.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/symbols.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/intent-routing.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/core/intent-routing.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/cli-main.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/cli-main.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/cli-main.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/generate.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/generate.ts",
+              "kind": "import",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 130,
+            "scanned": 130,
+            "partial": false
+          },
+          "truncated": true,
+          "indexFreshness": "fresh",
+          "coldMs": 521.316125,
+          "warmMs": 477.188834
+        },
+        {
+          "id": "dhruv-index",
+          "negative": false,
+          "gold": [
+            "src/nano/index.ts",
+            "__tests__/nano-index-contract.test.ts"
+          ],
+          "uncertain": [
+            "src/nano/discovery.ts"
+          ],
+          "candidates": 37,
+          "candidateHits": [
+            "src/nano/index.ts"
+          ],
+          "top10": [
+            "src/nano/index.ts",
+            "src/nano/context.ts",
+            "src/nano/discovery.ts",
+            "src/commands/status.ts",
+            "src/nano/cli.ts",
+            "src/commands/definitions/diagnostic-commands.ts",
+            "__tests__/built-in-commands.test.ts",
+            "__tests__/diagnostics.test.ts",
+            "__tests__/interactive.test.ts",
+            "__tests__/nano-discovery.test.ts"
+          ],
+          "top10Hits": [
+            "src/nano/index.ts"
+          ],
+          "facts": [
+            {
+              "path": "src/nano/index.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/index.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/context.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/discovery.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/discovery.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/discovery.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/status.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/status.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/nano/cli.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/definitions/diagnostic-commands.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/definitions/diagnostic-commands.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/built-in-commands.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/diagnostics.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/interactive.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/nano-discovery.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 130,
+            "scanned": 130,
+            "partial": false
+          },
+          "truncated": true,
+          "indexFreshness": "fresh",
+          "coldMs": 480.144792,
+          "warmMs": 471.044917
+        },
+        {
+          "id": "dhruv-completion",
+          "negative": false,
+          "gold": [
+            "src/commands/completion.ts"
+          ],
+          "uncertain": [
+            "__tests__/cli-contract.test.ts"
+          ],
+          "candidates": 24,
+          "candidateHits": [
+            "src/commands/completion.ts"
+          ],
+          "top10": [
+            "src/commands/completion.ts",
+            "src/commands/definitions/diagnostic-commands.ts",
+            "__tests__/built-in-command-contract.test.ts",
+            "__tests__/built-in-commands.test.ts",
+            "__tests__/helpers/bash-completion.ts",
+            "docs/api/index.html",
+            "README.md",
+            "docs/index.html",
+            "src/commands/built-in-commands.ts",
+            "src/commands/run.ts"
+          ],
+          "top10Hits": [
+            "src/commands/completion.ts"
+          ],
+          "facts": [
+            {
+              "path": "src/commands/completion.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/completion.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/completion.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/definitions/diagnostic-commands.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/definitions/diagnostic-commands.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/definitions/diagnostic-commands.ts",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/built-in-command-contract.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/built-in-commands.test.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "__tests__/helpers/bash-completion.ts",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/api/index.html",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/api/index.html",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/api/index.html",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "README.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "README.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/index.html",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/index.html",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/built-in-commands.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/built-in-commands.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/run.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "src/commands/run.ts",
+              "kind": "text",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 130,
+            "scanned": 130,
+            "partial": false
+          },
+          "truncated": true,
+          "indexFreshness": "fresh",
+          "coldMs": 472.464291,
+          "warmMs": 478.712875
+        },
+        {
+          "id": "dhruv-negative",
+          "negative": true,
+          "gold": [],
+          "candidates": 1,
+          "candidateHits": [],
+          "top10": [
+            "test-suite.sh"
+          ],
+          "top10Hits": [],
+          "falsePositiveCount": 1,
+          "facts": [
+            {
+              "path": "test-suite.sh",
+              "kind": "text",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 130,
+            "scanned": 130,
+            "partial": false
+          },
+          "truncated": false,
+          "indexFreshness": "fresh",
+          "coldMs": 475.501625,
+          "warmMs": 456.86475
+        }
+      ],
+      "summary": {
+        "positiveTasks": 3,
+        "negativeTasks": 1,
+        "goldFiles": 5,
+        "candidateRecall": {
+          "n": 3,
+          "N": 5,
+          "micro": 0.6,
+          "macro": 0.6666666666666666
+        },
+        "recallAt10": {
+          "n": 3,
+          "N": 5,
+          "micro": 0.6,
+          "macro": 0.6666666666666666
+        },
+        "hitAnyAt10": 3,
+        "allGoldAt10": 1,
+        "evidence": {
+          "valid": 92,
+          "total": 92,
+          "invalid": 0,
+          "unverifiable": 0,
+          "wilson95": [
+            0.9599171967079014,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "commander",
+      "sha": "ba6d13ddb4243e5913367734f8c159089ffe7834",
+      "tasks": [
+        {
+          "id": "commander-help",
+          "negative": false,
+          "gold": [
+            "lib/command.js",
+            "lib/help.js",
+            "tests/command.configureHelp.test.js"
+          ],
+          "uncertain": [
+            "tests/help.showGlobalOptions.test.js"
+          ],
+          "candidates": 85,
+          "candidateHits": [
+            "lib/command.js",
+            "lib/help.js"
+          ],
+          "top10": [
+            "typings/index.d.ts",
+            "lib/command.js",
+            "index.js",
+            "tests/args.literal.test.js",
+            "tests/args.variadic.test.js",
+            "tests/argument.chain.test.js",
+            "tests/argument.choices.test.js",
+            "tests/argument.custom-processing.test.js",
+            "tests/argument.required.test.js",
+            "tests/argument.variadic.test.js"
+          ],
+          "top10Hits": [
+            "lib/command.js"
+          ],
+          "facts": [
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.literal.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.variadic.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.chain.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.choices.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.custom-processing.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.required.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.variadic.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 216,
+            "scanned": 216,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 403.819375,
+          "warmMs": 406.37925
+        },
+        {
+          "id": "commander-env",
+          "negative": false,
+          "gold": [
+            "lib/option.js",
+            "lib/command.js",
+            "tests/options.env.test.js"
+          ],
+          "uncertain": [],
+          "candidates": 87,
+          "candidateHits": [
+            "lib/option.js",
+            "lib/command.js"
+          ],
+          "top10": [
+            "lib/command.js",
+            "typings/index.d.ts",
+            "lib/option.js",
+            "index.js",
+            "tests/args.literal.test.js",
+            "tests/args.variadic.test.js",
+            "tests/argument.chain.test.js",
+            "tests/argument.choices.test.js",
+            "tests/argument.custom-processing.test.js",
+            "tests/argument.required.test.js"
+          ],
+          "top10Hits": [
+            "lib/option.js",
+            "lib/command.js"
+          ],
+          "facts": [
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/option.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.literal.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.variadic.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.chain.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.choices.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.custom-processing.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.required.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 216,
+            "scanned": 216,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 406.855209,
+          "warmMs": 407.997333
+        },
+        {
+          "id": "commander-similar",
+          "negative": false,
+          "gold": [
+            "lib/suggestSimilar.js"
+          ],
+          "uncertain": [
+            "lib/command.js"
+          ],
+          "candidates": 87,
+          "candidateHits": [
+            "lib/suggestSimilar.js"
+          ],
+          "top10": [
+            "lib/command.js",
+            "typings/index.d.ts",
+            "lib/suggestSimilar.js",
+            "index.js",
+            "tests/args.literal.test.js",
+            "tests/args.variadic.test.js",
+            "tests/argument.chain.test.js",
+            "tests/argument.choices.test.js",
+            "tests/argument.custom-processing.test.js",
+            "tests/argument.required.test.js"
+          ],
+          "top10Hits": [
+            "lib/suggestSimilar.js"
+          ],
+          "facts": [
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/command.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "typings/index.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/suggestSimilar.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/suggestSimilar.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "index.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.literal.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/args.variadic.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.chain.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.choices.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.custom-processing.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            },
+            {
+              "path": "tests/argument.required.test.js",
+              "kind": "related-test",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 216,
+            "scanned": 216,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 405.784291,
+          "warmMs": 405.929333
+        },
+        {
+          "id": "commander-negative",
+          "negative": true,
+          "gold": [],
+          "candidates": 14,
+          "candidateHits": [],
+          "top10": [
+            "CHANGELOG.md",
+            "Readme.md",
+            "Readme_zh-CN.md"
+          ],
+          "top10Hits": [],
+          "falsePositiveCount": 3,
+          "facts": [
+            {
+              "path": "CHANGELOG.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "Readme.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "Readme_zh-CN.md",
+              "kind": "text",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 216,
+            "scanned": 216,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 393.807291,
+          "warmMs": 406.766292
+        }
+      ],
+      "summary": {
+        "positiveTasks": 3,
+        "negativeTasks": 1,
+        "goldFiles": 7,
+        "candidateRecall": {
+          "n": 5,
+          "N": 7,
+          "micro": 0.7142857142857143,
+          "macro": 0.7777777777777777
+        },
+        "recallAt10": {
+          "n": 4,
+          "N": 7,
+          "micro": 0.5714285714285714,
+          "macro": 0.6666666666666666
+        },
+        "hitAnyAt10": 3,
+        "allGoldAt10": 1,
+        "evidence": {
+          "valid": 82,
+          "total": 82,
+          "invalid": 0,
+          "unverifiable": 0,
+          "wilson95": [
+            0.9552478052599207,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "execa",
+      "sha": "63ddae6aeb6934da06fdb3754647791e58cd87c3",
+      "tasks": [
+        {
+          "id": "execa-cwd",
+          "negative": false,
+          "gold": [
+            "lib/arguments/cwd.js",
+            "test/arguments/cwd.js"
+          ],
+          "uncertain": [
+            "lib/arguments/options.js"
+          ],
+          "candidates": 233,
+          "candidateHits": [
+            "lib/arguments/cwd.js"
+          ],
+          "top10": [
+            "lib/arguments/cwd.js",
+            "lib/arguments/command-file.js",
+            "lib/arguments/options.js",
+            "lib/return/message.js",
+            "types/arguments/options.d.ts",
+            "lib/arguments/encoding-option.js",
+            "lib/arguments/fd-options.js",
+            "lib/convert/concurrent.js",
+            "lib/stdio/input-option.js",
+            "lib/stdio/stdio-option.js"
+          ],
+          "top10Hits": [
+            "lib/arguments/cwd.js"
+          ],
+          "facts": [
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/command-file.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/command-file.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/command-file.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/command-file.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/options.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/options.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/options.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/options.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/return/message.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "types/arguments/options.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "types/arguments/options.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "types/arguments/options.d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "types/arguments/options.d.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/encoding-option.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/fd-options.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/concurrent.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/input-option.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/stdio-option.js",
+              "kind": "path",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 663,
+            "scanned": 663,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 991.472541,
+          "warmMs": 894.53
+        },
+        {
+          "id": "execa-duplex",
+          "negative": false,
+          "gold": [
+            "lib/convert/duplex.js",
+            "test/convert/duplex.js"
+          ],
+          "uncertain": [
+            "lib/convert/shared.js"
+          ],
+          "candidates": 109,
+          "candidateHits": [
+            "lib/convert/duplex.js"
+          ],
+          "top10": [
+            "lib/return/early-error.js",
+            "lib/stdio/handle-async.js",
+            "lib/convert/duplex.js",
+            "test-d/stdio/option/duplex.test-d.ts",
+            "lib/transform/generator.js",
+            "test-d/transform/object-mode.test-d.ts",
+            "lib/convert/add.js",
+            "lib/io/input-sync.js",
+            "lib/io/output-sync.js",
+            "lib/methods/main-async.js"
+          ],
+          "top10Hits": [
+            "lib/convert/duplex.js"
+          ],
+          "facts": [
+            {
+              "path": "lib/return/early-error.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/return/early-error.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/return/early-error.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/return/early-error.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/handle-async.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/handle-async.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/handle-async.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/stdio/handle-async.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/duplex.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/duplex.js",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/duplex.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/stdio/option/duplex.test-d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/stdio/option/duplex.test-d.ts",
+              "kind": "path",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/stdio/option/duplex.test-d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/transform/generator.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/transform/generator.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/transform/generator.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/transform/object-mode.test-d.ts",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/transform/object-mode.test-d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "test-d/transform/object-mode.test-d.ts",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/add.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/add.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/add.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/io/input-sync.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/io/input-sync.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/io/output-sync.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/io/output-sync.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/main-async.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/main-async.js",
+              "kind": "import",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 663,
+            "scanned": 663,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 903.256209,
+          "warmMs": 892.305417
+        },
+        {
+          "id": "execa-file-url",
+          "negative": false,
+          "gold": [
+            "lib/arguments/file-url.js"
+          ],
+          "uncertain": [
+            "test/arguments/cwd.js"
+          ],
+          "candidates": 11,
+          "candidateHits": [
+            "lib/arguments/file-url.js"
+          ],
+          "top10": [
+            "lib/arguments/file-url.js",
+            "lib/arguments/cwd.js",
+            "lib/methods/node.js",
+            "lib/methods/parameters.js",
+            "lib/arguments/options.js",
+            "lib/pipe/pipe-arguments.js",
+            "docs/small.md",
+            "docs/streams.md",
+            "docs/termination.md",
+            "lib/convert/web.js"
+          ],
+          "top10Hits": [
+            "lib/arguments/file-url.js"
+          ],
+          "facts": [
+            {
+              "path": "lib/arguments/file-url.js",
+              "kind": "symbol",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/file-url.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/cwd.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/node.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/node.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/parameters.js",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/methods/parameters.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/arguments/options.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/pipe/pipe-arguments.js",
+              "kind": "import",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/small.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/streams.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "docs/termination.md",
+              "kind": "text",
+              "verdict": "valid"
+            },
+            {
+              "path": "lib/convert/web.js",
+              "kind": "text",
+              "verdict": "valid"
+            }
+          ],
+          "coverage": {
+            "discovered": 663,
+            "scanned": 663,
+            "partial": true
+          },
+          "truncated": true,
+          "indexFreshness": "partial",
+          "coldMs": 881.591209,
+          "warmMs": 892.076125
+        },
+        {
+          "id": "execa-negative",
+          "negative": true,
+          "gold": [],
+          "candidates": 0,
+          "candidateHits": [],
+          "top10": [],
+          "top10Hits": [],
+          "falsePositiveCount": 0,
+          "facts": [],
+          "coverage": {
+            "discovered": 663,
+            "scanned": 663,
+            "partial": true
+          },
+          "truncated": false,
+          "indexFreshness": "partial",
+          "coldMs": 885.686834,
+          "warmMs": 886.798541
+        }
+      ],
+      "summary": {
+        "positiveTasks": 3,
+        "negativeTasks": 1,
+        "goldFiles": 5,
+        "candidateRecall": {
+          "n": 3,
+          "N": 5,
+          "micro": 0.6,
+          "macro": 0.6666666666666666
+        },
+        "recallAt10": {
+          "n": 3,
+          "N": 5,
+          "micro": 0.6,
+          "macro": 0.6666666666666666
+        },
+        "hitAnyAt10": 3,
+        "allGoldAt10": 1,
+        "evidence": {
+          "valid": 66,
+          "total": 66,
+          "invalid": 0,
+          "unverifiable": 0,
+          "wilson95": [
+            0.9449955327483907,
+            1
+          ]
+        }
+      }
+    }
+  ]
+}

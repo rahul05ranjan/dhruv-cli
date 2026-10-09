@@ -19,6 +19,7 @@ Thumbs.db
 
 # Dhruv/Ollama CLI
 .dhruv-cache/
+.nano/
 .devai-cache/
 .dhruv-config.json
 .dhruv-metrics.json

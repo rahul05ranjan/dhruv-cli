@@ -6,6 +6,7 @@
  */
 import chalk from 'chalk';
 import { builtInCommands, findBuiltInCommand, globalOptions, type BuiltInArgument, type BuiltInOption } from './built-in-commands.js';
+import { nanoCommands, nanoCommandOptions } from '../nano/command-options.js';
 
 const helpOption: BuiltInOption = { flags: '-h, --help', description: 'display help for command' };
 
@@ -48,11 +49,11 @@ function argumentFacts(args: readonly BuiltInArgument[] = []): Pick<CompletionTa
 }
 
 function completionTargets(): CompletionTarget[] {
-  return builtInCommands.map((definition) => ({
+  return [...builtInCommands.map((definition) => ({
     name: definition.name,
     ...argumentFacts(definition.arguments),
     flags: [...(definition.options ?? []), ...globalOptions, helpOption].map(parseFlags),
-  }));
+  })), { name: 'nano', completeFiles: false, flags: [parseFlags(helpOption)] }];
 }
 
 /** Program-level options: accepted before any command. */
@@ -69,6 +70,10 @@ function singleQuoted(value: string): string {
 }
 
 function bashScript(targets: CompletionTarget[], commands: string, options: string): string {
+  const nanoBranches = nanoCommands.map((name) => `        if [[ "\${COMP_WORDS[2]}" == "${name}" ]]; then
+          commands=""
+          options="--help ${nanoCommandOptions[name].map((option) => option.flag).join(' ')}"
+        fi`).join('\n');
   const choiceBlocks = targets.filter((target) => target.choices?.position === 1).map((target) => `
   if [[ "$cur" != -* && "$prev" == "${target.name}" ]]; then
     COMPREPLY=( $(compgen -W "${target.choices?.values.join(' ')}" -- "$cur") )
@@ -83,6 +88,11 @@ function bashScript(targets: CompletionTarget[], commands: string, options: stri
   const perCommandBlock = `
   if [[ $COMP_CWORD -gt 1 ]]; then
     case "\${COMP_WORDS[1]}" in
+      nano)
+        commands="${nanoCommands.join(' ')}"
+        options="--help"
+${nanoBranches}
+        ;;
 ${targets.map((target) => `      ${target.name})
         commands=""
         options="${flagWords(target.flags)}"
@@ -121,6 +131,20 @@ function zshOptionSpecs(flag: CompletionFlag): string[] {
 }
 
 function zshBranch(target: CompletionTarget): string | undefined {
+  if (target.name === 'nano') {
+    const branches = nanoCommands.map((name) => {
+      const specs = nanoCommandOptions[name].flatMap((option) => zshOptionSpecs({
+        long: option.flag, valueName: option.valueName, description: option.description,
+      }));
+      return `            ${name}) _arguments '--help[display help for command]' ${specs.join(' ')} ;;`;
+    }).join('\n');
+    return `        nano)
+          case $words[2] in
+${branches}
+            *) _arguments '1:subcommand:(${nanoCommands.join(' ')})' '--help[display help for command]' ;;
+          esac
+          ;;`;
+  }
   const specs = [
     ...(target.choices ? [`'${target.choices.position}:${target.choices.name}:(${target.choices.values.join(' ')})'`] : []),
     ...(target.completeFiles ? [`'*:file:_files'`] : []),
@@ -167,6 +191,12 @@ function fishScript(targets: CompletionTarget[], commands: string, options: stri
     for (const flag of target.flags) {
       const names = [flag.short && `-s ${flag.short.slice(1)}`, flag.long && `-l ${flag.long.slice(2)}`].filter(Boolean).join(' ');
       lines.push(`complete -c dhruv -n ${seen(target.name)} ${names}${flag.valueName ? ' -r' : ''} -d ${singleQuoted(flag.description)}`);
+    }
+  }
+  lines.push(`complete -c dhruv -f -n '__fish_seen_subcommand_from nano; and not __fish_seen_subcommand_from ${nanoCommands.join(' ')}' -a '${nanoCommands.join(' ')}'`);
+  for (const name of nanoCommands) {
+    for (const flag of nanoCommandOptions[name]) {
+      lines.push(`complete -c dhruv -n '__fish_seen_subcommand_from nano; and __fish_seen_subcommand_from ${name}' -l ${flag.flag.slice(2)}${flag.valueName ? ' -r' : ''}`);
     }
   }
   const otherCommands = `not __fish_use_subcommand; and not __fish_seen_subcommand_from ${targets.map((target) => target.name).join(' ')}`;
