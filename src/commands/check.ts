@@ -4,7 +4,8 @@ import { describeAIError } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { securityManager } from '../core/security.js';
 import { ingestCommittedRange, type CommittedRangeLimits, type RangeFile } from '../core/committed-range.js';
-import { presentCheckResult, type CheckRefs, type CheckResult } from '../core/check-presentation.js';
+import { CHECK_SEVERITIES, readFindings, summarizeFindings } from '../core/check-findings.js';
+import { presentCheckResult, type CheckRangeFacts, type CheckResult } from '../core/check-presentation.js';
 
 export interface CheckOptions {
   base?: string;
@@ -47,7 +48,8 @@ function buildPrompt(files: RangeFile[]): string {
     const renamed = file.oldPath ? ` (renamed from ${file.oldPath})` : '';
     return `FILE ${file.path}${renamed} - changed lines: ${formatRanges(file)}\n${numberPatch(file.patch)}`;
   });
-  return `Please review this committed change. Only the lines marked with + are new; the rest is context. Report concrete problems in the changed lines only, each with the file, line number, severity, a short explanation and an actionable recommendation. If you find nothing worth reporting, say so plainly.\n\nCODE_START\n${sections.join('\n\n')}\nCODE_END`;
+  const shape = `{"findings":[{"path":"<file path as shown>","line":<number of a + line>,"severity":"<${CHECK_SEVERITIES.join('|')}>","reason":"<one-sentence summary of the problem>","evidence":"<what in the change shows it>","recommendation":"<how to fix it>"}]}`;
+  return `Please review this committed change. Only the lines marked with + are new and carry their line number; the rest is context. Report concrete problems in the changed lines only.\n\nRespond with one JSON object in exactly this shape and nothing else:\n${shape}\nRespond with {"findings":[]} if you find nothing worth reporting.\n\nCODE_START\n${sections.join('\n\n')}\nCODE_END`;
 }
 
 /** Races the AI request against the timeout and Ctrl-C; always cleans up its timer and listener. */
@@ -79,14 +81,13 @@ async function askWithDeadline(request: AIRequest, timeoutMs: number): Promise<s
   }
 }
 
-function aiFailure(error: unknown, model: string, refs: CheckRefs): CheckResult {
+function aiFailure(error: unknown, facts: CheckRangeFacts): CheckResult {
   const kind = typeof error === 'object' && error !== null && 'kind' in error ? String((error as AIError).kind) : 'request';
-  const hint = describeAIError(error, model).replace(/^💡 /, '');
+  const hint = describeAIError(error, facts.model).replace(/^💡 /, '');
   const timedOut = kind === 'timeout';
   return {
     status: kind === 'cancelled' ? 'cancelled' : 'error',
-    refs,
-    model,
+    ...facts,
     error: {
       kind: `ai-${kind}`,
       message: kind === 'cancelled' ? 'Review cancelled.' : timedOut ? 'The AI review timed out.' : 'The AI review failed.',
@@ -115,26 +116,43 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
   const range = ingestCommittedRange({ base: options.base, cwd: deps.cwd ?? process.cwd(), limits: deps.limits });
   if (!range.ok) return { status: 'error', error: { kind: range.reason, message: range.message } };
 
-  const refs: CheckRefs = { base: range.base, mergeBase: range.mergeBase, head: range.head };
   const config = loadConfig();
-  const summary = { refs, model: config.model, coverage: range.coverage, skipped: range.skipped };
-  if (range.files.length === 0) return { status: 'ok', ...summary };
+  const facts: CheckRangeFacts = {
+    refs: { base: range.base, mergeBase: range.mergeBase, head: range.head },
+    model: config.model,
+    coverage: range.coverage,
+    exclusions: range.skipped,
+  };
+  if (range.files.length === 0) return { status: 'ok', ...facts, summary: summarizeFindings([]), findings: [] };
 
   // The allowlist gates AI access. Validate the resolved commit IDs, never the free-form ref.
   const validation = securityManager.validateInput('check', { base: range.base.commit, head: range.head });
   if (!validation.valid) {
-    return { status: 'error', refs, error: { kind: 'validation', message: validation.error ?? 'Input validation failed.' } };
+    return { status: 'error', ...facts, error: { kind: 'validation', message: validation.error ?? 'Input validation failed.' } };
   }
 
+  let response: string;
   try {
-    const response = await askWithDeadline({
+    // The response cache would leave model output in the checkout and replay stale reviews.
+    response = await askWithDeadline({
       prompt: buildPrompt(range.files),
-      systemMessage: getSystemMessage('review'),
+      systemMessage: getSystemMessage('check'),
       model: config.model,
+      cache: false,
     }, config.timeoutMs);
     if (!response.trim()) throw { kind: 'empty-response', model: config.model } satisfies AIError;
-    return { status: 'ok', ...summary, review: response };
   } catch (error) {
-    return aiFailure(error, config.model, refs);
+    return aiFailure(error, facts);
   }
+
+  // The response itself is never echoed: an unusable one is reported by kind only.
+  const outcome = readFindings(response, range.files);
+  if (!outcome.ok) {
+    return {
+      status: 'error',
+      ...facts,
+      error: { kind: 'invalid-response', message: outcome.message, hint: 'Run the check again, or choose a more capable model with --model.' },
+    };
+  }
+  return { status: 'ok', ...facts, summary: outcome.summary, findings: outcome.findings };
 }

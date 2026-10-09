@@ -6,8 +6,10 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { check } from '../src/commands/check';
 import { findBuiltInCommand } from '../src/commands/built-in-commands';
-import { setAIClient } from '../src/core/ai';
+import type { Ollama } from 'ollama';
+import { OllamaAIClient, setAIClient } from '../src/core/ai';
 import type { AIClient, AIRequest } from '../src/core/ai';
+import * as loggerModule from '../src/core/logger';
 import { resetSessionConfig, setSessionConfig } from '../src/config/config';
 import type { CommittedRangeLimits } from '../src/core/committed-range';
 import { securityManager } from '../src/core/security';
@@ -66,7 +68,7 @@ jest.mock('../src/core/logger', () => ({
 class FakeClient implements AIClient {
   requests: AIRequest[] = [];
 
-  constructor(private readonly reply: () => string | Promise<string> = () => 'No problems found.') {}
+  constructor(private readonly reply: () => string | Promise<string> = () => findingsReply([])) {}
 
   async ask(request: AIRequest): Promise<string> {
     this.requests.push(request);
@@ -78,10 +80,47 @@ class FakeClient implements AIClient {
   }
 }
 
+interface JsonFinding {
+  path: string;
+  line: number;
+  severity: string;
+  reason: string;
+  evidence: string;
+  recommendation: string;
+}
+
 interface JsonResult {
-  refs: { base: { commit: string }; head: string };
+  status: string;
+  refs: { base: { ref: string; commit: string }; mergeBase: string; head: string };
+  model: string;
+  findings: JsonFinding[];
+  summary: { findings: number; bySeverity: Record<string, number>; candidates: number; omitted: { invalid: number; offDiff: number; duplicate: number } };
   coverage: Record<string, unknown>;
-  error: { kind: string };
+  exclusions: Array<{ path: string; reason: string }>;
+  error: { kind: string; message: string; hint?: string };
+}
+
+/** A model response carrying candidate findings. */
+function findingsReply(findings: unknown[]): string {
+  return JSON.stringify({ findings });
+}
+
+function candidate(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    path: 'src/app.ts',
+    line: 2,
+    severity: 'high',
+    reason: 'Constant changed without updating callers',
+    evidence: 'b is now 22 while callers still assume 2',
+    recommendation: 'Update the callers or keep the previous value',
+    ...overrides,
+  };
+}
+
+/** Everything the mocked logger and console were asked to record. */
+function recordedTelemetry(): string {
+  const sinks: unknown[] = [...Object.values(loggerModule.logger), ...Object.values(loggerModule), console.log, console.warn, console.error];
+  return JSON.stringify(sinks.filter((sink) => jest.isMockFunction(sink)).flatMap((sink) => (sink as jest.Mock).mock.calls));
 }
 
 /** Runs `check` against a repository and captures what a user or CI job would observe. */
@@ -135,7 +174,7 @@ describe('dhruv check --base', () => {
     expect(prompt).not.toContain('unstagedMarker');
     expect(result.stdout).toContain(baseSha);
     expect(result.stdout).toContain(head);
-    expect(result.stdout).toContain('No problems found.');
+    expect(result.stdout).toMatch(/no findings/i);
   });
 
   it('gives the model new-side changed line numbers', async () => {
@@ -338,7 +377,7 @@ describe('dhruv check --base', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toMatch(/ollama serve/);
-      expect(result.stdout).not.toMatch(/No problems/);
+      expect(result.stdout).toBe('');
     });
 
     it('fails on an empty model response', async () => {
@@ -379,6 +418,373 @@ describe('dhruv check --base', () => {
     });
   });
 
+  describe('findings', () => {
+    const useReply = (reply: string) => {
+      client = new FakeClient(() => reply);
+      setAIClient(client);
+    };
+    const jsonCheck = async (): Promise<JsonResult> => {
+      setSessionConfig({ responseFormat: 'json', model: 'test-model' });
+      const result = await runCheck(repo, { base: 'main' });
+      expect(result.stdout.trim().split('\n')).toHaveLength(1);
+      return JSON.parse(result.stdout) as JsonResult;
+    };
+
+    beforeEach(() => {
+      // Changes lines 2 and 4 of src/app.ts; lines 1 and 3 are unchanged context.
+      repo.git('rm', '-q', 'README.md');
+      repo.commit({
+        'src/app.ts': 'export const a = 1;\nexport const b = 22;\nexport const c = 3;\nexport const d = 4;\n',
+        'src/extra.ts': 'export const extra = true;\n',
+      }, 'feature');
+    });
+
+    it('reports a grounded finding with its location, severity, reason, evidence and recommendation', async () => {
+      useReply(findingsReply([candidate({ severity: 'critical' })]));
+
+      const text = await runCheck(repo, { base: 'main' });
+      const parsed = await jsonCheck();
+
+      expect(parsed.findings).toEqual([{
+        path: 'src/app.ts',
+        line: 2,
+        severity: 'critical',
+        reason: 'Constant changed without updating callers',
+        evidence: 'b is now 22 while callers still assume 2',
+        recommendation: 'Update the callers or keep the previous value',
+      }]);
+      expect(parsed.summary).toMatchObject({ findings: 1, candidates: 1, omitted: { invalid: 0, offDiff: 0, duplicate: 0 } });
+      expect(parsed.summary.bySeverity).toEqual({ critical: 1, high: 0, medium: 0, low: 0, info: 0 });
+      // Findings are advisory: even a critical one leaves the run successful.
+      expect(parsed.status).toBe('ok');
+      expect(text.exitCode).toBe(0);
+      expect(text.stdout).toContain('src/app.ts:2');
+      expect(text.stdout).toMatch(/critical/i);
+      expect(text.stdout).toContain('Constant changed without updating callers');
+      expect(text.stdout).toContain('b is now 22 while callers still assume 2');
+      expect(text.stdout).toContain('Update the callers or keep the previous value');
+      expect(text.stdout).toMatch(/1 finding\b/);
+      expect(text.stderr).toBe('');
+    });
+
+    it('accepts a response that wraps the JSON object in a code fence', async () => {
+      useReply(`Here is the review:\n\`\`\`json\n${findingsReply([candidate()])}\n\`\`\`\n`);
+
+      const parsed = await jsonCheck();
+
+      expect(parsed.status).toBe('ok');
+      expect(parsed.findings).toHaveLength(1);
+    });
+
+    it('normalizes paths, line numbers and severities before validating them', async () => {
+      useReply(findingsReply([candidate({ path: './src/app.ts', line: '4', severity: ' High ' })]));
+
+      const parsed = await jsonCheck();
+
+      expect(parsed.findings).toMatchObject([{ path: 'src/app.ts', line: 4, severity: 'high' }]);
+    });
+
+    it.each([
+      ['plain prose', 'The change looks fine to me. RAW_RESPONSE_MARKER'],
+      ['broken JSON', '{"findings": [ RAW_RESPONSE_MARKER'],
+      ['an object without a findings collection', '{"issues": [], "note": "RAW_RESPONSE_MARKER"}'],
+      ['a findings value that is not a collection', '{"findings": "RAW_RESPONSE_MARKER"}'],
+      ['a bare array', `[${JSON.stringify(candidate({ reason: 'RAW_RESPONSE_MARKER' }))}]`],
+    ])('fails the run when the model returns %s', async (_label, reply) => {
+      useReply(reply);
+
+      const text = await runCheck(repo, { base: 'main' });
+      const parsed = await jsonCheck();
+
+      expect(text.exitCode).toBe(1);
+      expect(text.stdout).toBe('');
+      expect(text.stderr).toMatch(/model/i);
+      expect(process.exitCode).toBe(1);
+      expect(parsed.status).toBe('error');
+      expect(parsed.error.kind).toBe('invalid-response');
+      expect(parsed).not.toHaveProperty('findings');
+      expect(parsed.model).toBe('test-model');
+      // The raw response is never echoed to the user, the result or the logs.
+      expect(text.stderr).not.toContain('RAW_RESPONSE_MARKER');
+      expect(JSON.stringify(parsed)).not.toContain('RAW_RESPONSE_MARKER');
+      expect(recordedTelemetry()).not.toContain('RAW_RESPONSE_MARKER');
+    });
+
+    it('omits and counts malformed candidates while keeping the valid ones', async () => {
+      useReply(findingsReply([
+        candidate({ line: 4, reason: 'Kept' }),
+        candidate({ reason: undefined }),
+        candidate({ reason: '   ' }),
+        candidate({ recommendation: undefined }),
+        candidate({ evidence: undefined }),
+        candidate({ severity: 'blocker' }),
+        candidate({ severity: undefined }),
+        candidate({ line: 2.5 }),
+        candidate({ line: 'two' }),
+        candidate({ path: 42 }),
+        'not an object',
+        null,
+      ]));
+
+      const text = await runCheck(repo, { base: 'main' });
+      const parsed = await jsonCheck();
+
+      expect(parsed.status).toBe('ok');
+      expect(parsed.findings).toMatchObject([{ path: 'src/app.ts', line: 4, reason: 'Kept' }]);
+      expect(parsed.summary).toMatchObject({ findings: 1, candidates: 12, omitted: { invalid: 11, offDiff: 0, duplicate: 0 } });
+      expect(text.exitCode).toBe(0);
+      expect(text.stdout).toMatch(/11 invalid/);
+    });
+
+    it('omits and counts candidates that do not point at a changed line of an analyzed file', async () => {
+      useReply(findingsReply([
+        candidate({ line: 2, reason: 'Kept' }),
+        candidate({ line: 1, reason: 'Unchanged context line' }),
+        candidate({ line: 3, reason: 'Unchanged context line' }),
+        candidate({ line: 99, reason: 'Beyond the file' }),
+        candidate({ line: 0, reason: 'No such line' }),
+        candidate({ path: 'src/missing.ts', reason: 'Unknown file' }),
+        candidate({ path: 'README.md', line: 1, reason: 'Deleted file' }),
+        candidate({ path: '../src/app.ts', reason: 'Outside the repository' }),
+        candidate({ path: `${repo.root}/src/app.ts`, reason: 'Absolute path' }),
+      ]));
+
+      const text = await runCheck(repo, { base: 'main' });
+      const parsed = await jsonCheck();
+
+      expect(parsed.findings).toMatchObject([{ path: 'src/app.ts', line: 2, reason: 'Kept' }]);
+      expect(parsed.summary).toMatchObject({ findings: 1, candidates: 9, omitted: { invalid: 0, offDiff: 8, duplicate: 0 } });
+      expect(text.stdout).not.toContain('Unknown file');
+      expect(text.stdout).not.toContain('Unchanged context line');
+      expect(text.stdout).toMatch(/8 not on a changed line/);
+    });
+
+    it('collapses duplicates deterministically, keeping the most severe', async () => {
+      const candidates = [
+        candidate({ severity: 'low', reason: 'Unused constant.' }),
+        candidate({ severity: 'high', reason: '  unused   CONSTANT', evidence: 'kept evidence' }),
+        candidate({ severity: 'medium', reason: 'Unused constant!' }),
+        candidate({ line: 4, reason: 'Unused constant' }),
+        candidate({ path: 'src/extra.ts', line: 1, reason: 'Unused constant' }),
+        candidate({ reason: 'A different problem' }),
+      ];
+
+      useReply(findingsReply(candidates));
+      const forward = await jsonCheck();
+      useReply(findingsReply([...candidates].reverse()));
+      const backward = await jsonCheck();
+
+      expect(forward.findings.map(({ path, line, severity, reason }) => `${path}:${line} ${severity} ${reason}`)).toEqual([
+        'src/app.ts:2 high A different problem',
+        'src/app.ts:2 high unused CONSTANT',
+        'src/app.ts:4 high Unused constant',
+        'src/extra.ts:1 high Unused constant',
+      ]);
+      expect(forward.findings[1].evidence).toBe('kept evidence');
+      expect(forward.summary).toMatchObject({ findings: 4, candidates: 6, omitted: { invalid: 0, offDiff: 0, duplicate: 2 } });
+      expect(backward.findings).toEqual(forward.findings);
+      expect(backward.summary).toEqual(forward.summary);
+    });
+
+    it('orders findings by path, line and severity whatever order the model used', async () => {
+      useReply(findingsReply([
+        candidate({ path: 'src/extra.ts', line: 1, severity: 'critical', reason: 'Third' }),
+        candidate({ line: 4, severity: 'critical', reason: 'Second' }),
+        candidate({ line: 2, severity: 'info', reason: 'First, less severe' }),
+        candidate({ line: 2, severity: 'medium', reason: 'First' }),
+      ]));
+
+      const parsed = await jsonCheck();
+
+      expect(parsed.findings.map(({ reason }) => reason)).toEqual(['First', 'First, less severe', 'Second', 'Third']);
+      expect(parsed.summary.bySeverity).toEqual({ critical: 2, high: 0, medium: 1, low: 0, info: 1 });
+    });
+
+    it('summarizes findings, omissions and coverage in text', async () => {
+      useReply(findingsReply([
+        candidate({ severity: 'high' }),
+        candidate({ line: 4, severity: 'low', reason: 'Magic number' }),
+        candidate({ line: 4, severity: 'low', reason: 'magic number' }),
+        candidate({ line: 3, reason: 'Off the diff' }),
+        candidate({ severity: 'unknown' }),
+      ]));
+
+      const result = await runCheck(repo, { base: 'main' });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/Analyzed 2 of 3 changed files/);
+      expect(result.stdout).toMatch(/2 findings: 1 high, 1 low/);
+      expect(result.stdout).toMatch(/1 invalid/);
+      expect(result.stdout).toMatch(/1 not on a changed line/);
+      expect(result.stdout).toMatch(/1 duplicate/);
+      expect(result.stdout).toMatch(/README\.md\s+\(deleted\)/);
+      expect(result.stdout.indexOf('src/app.ts:2')).toBeLessThan(result.stdout.indexOf('src/app.ts:4'));
+    });
+
+    it('says so plainly when the model reports nothing', async () => {
+      const result = await runCheck(repo, { base: 'main' });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/No findings\./);
+      expect(result.stdout).not.toMatch(/omitted|duplicate/i);
+    });
+
+    it('strips terminal control sequences and line breaks from model text', async () => {
+      useReply(findingsReply([candidate({ reason: 'Bad\u001b[31m value\nsecond line', evidence: 'tab\there\r\n', recommendation: `${'x'.repeat(5000)}` })]));
+
+      const text = await runCheck(repo, { base: 'main' });
+      const parsed = await jsonCheck();
+
+      expect(text.stdout).not.toContain('\u001b');
+      expect(parsed.findings[0].reason).toBe('Bad [31m value second line');
+      expect(parsed.findings[0].evidence).toBe('tab here');
+      expect(parsed.findings[0].recommendation.length).toBeLessThan(1000);
+    });
+  });
+
+  describe('JSON result', () => {
+    beforeEach(() => {
+      setSessionConfig({ responseFormat: 'json', model: 'test-model' });
+    });
+
+    const expectSingleObject = (stdout: string): JsonResult => {
+      expect(stdout.endsWith('\n')).toBe(true);
+      expect(stdout.trim().split('\n')).toHaveLength(1);
+      return JSON.parse(stdout) as JsonResult;
+    };
+
+    it('carries model, resolved commits, findings, coverage and exclusions and nothing incidental', async () => {
+      repo.git('rm', '-q', 'README.md');
+      const head = repo.commit({ 'src/app.ts': 'export const a = 1;\nexport const SOURCE_MARKER = 22;\nexport const c = 3;\n' });
+      setAIClient(new FakeClient(() => findingsReply([candidate()])));
+
+      const result = await runCheck(repo, { base: 'main' });
+
+      const parsed = expectSingleObject(result.stdout);
+      expect(Object.keys(parsed).sort()).toEqual(['command', 'coverage', 'exclusions', 'findings', 'model', 'refs', 'schemaVersion', 'status', 'summary']);
+      expect(parsed).toMatchObject({ schemaVersion: 1, command: 'check', status: 'ok', model: 'test-model' });
+      expect(parsed.refs).toEqual({ base: { ref: 'main', commit: baseSha }, mergeBase: baseSha, head });
+      expect(parsed.coverage).toEqual({ changedFiles: 2, analyzedFiles: 1, skippedFiles: 1, complete: true });
+      expect(parsed.exclusions).toEqual([{ path: 'README.md', reason: 'deleted' }]);
+      expect(parsed.findings).toHaveLength(1);
+      // No patch, banner or diagnostics: stdout is the object and stderr stays quiet.
+      expect(result.stdout).not.toContain('SOURCE_MARKER');
+      expect(result.stdout).not.toContain('@@');
+      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(0);
+    });
+
+    it('reports a clean range as a successful empty result', async () => {
+      const result = await runCheck(repo, { base: 'main' });
+
+      const parsed = expectSingleObject(result.stdout);
+      expect(result.exitCode).toBe(0);
+      expect(client.requests).toHaveLength(0);
+      expect(parsed).toMatchObject({ status: 'ok', findings: [], exclusions: [], summary: { findings: 0, candidates: 0 } });
+      expect(parsed.coverage).toMatchObject({ changedFiles: 0, complete: true });
+    });
+
+    it('reports an unreachable AI as an error with the commits and model it was reviewing', async () => {
+      const head = repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
+      setAIClient(new FakeClient(() => { throw { kind: 'connection', cause: 'ECONNREFUSED' }; }));
+
+      const result = await runCheck(repo, { base: 'main' });
+
+      const parsed = expectSingleObject(result.stdout);
+      expect(result.exitCode).toBe(1);
+      expect(parsed).toMatchObject({ schemaVersion: 1, command: 'check', status: 'error', model: 'test-model' });
+      expect(parsed.error.kind).toBe('ai-connection');
+      expect(parsed.error.hint).toMatch(/ollama serve/);
+      expect(parsed.refs.head).toBe(head);
+      expect(parsed.coverage).toMatchObject({ changedFiles: 1, analyzedFiles: 1 });
+      expect(parsed).not.toHaveProperty('findings');
+      expect(result.stderr).toBe('');
+    });
+
+    it('reports a timeout as an error, never as success', async () => {
+      repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
+      setAIClient(new FakeClient(() => new Promise<string>(() => undefined)));
+      setSessionConfig({ timeoutMs: 20 });
+
+      const result = await runCheck(repo, { base: 'main' });
+
+      const parsed = expectSingleObject(result.stdout);
+      expect(result.exitCode).toBe(1);
+      expect(parsed.status).toBe('error');
+      expect(parsed.error.kind).toBe('ai-timeout');
+      expect(parsed).not.toHaveProperty('findings');
+    });
+
+    it('reports cancellation with its own status and exit code', async () => {
+      repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
+      setAIClient(new FakeClient(() => new Promise<string>(() => undefined)));
+      setSessionConfig({ timeoutMs: 0 });
+      const stdout: string[] = [];
+      const outSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => { stdout.push(String(chunk)); return true; });
+
+      try {
+        const running = check({ base: 'main' }, { cwd: repo.root });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        process.emit('SIGINT');
+        await running;
+      } finally {
+        outSpy.mockRestore();
+      }
+
+      const parsed = expectSingleObject(stdout.join(''));
+      expect(process.exitCode).toBe(130);
+      expect(parsed.status).toBe('cancelled');
+      expect(parsed.error.kind).toBe('ai-cancelled');
+      expect(parsed).not.toHaveProperty('findings');
+    });
+
+    it('reports a missing --base as an error object', async () => {
+      const result = await runCheck(repo, {});
+
+      const parsed = expectSingleObject(result.stdout);
+      expect(result.exitCode).toBe(1);
+      expect(parsed).toMatchObject({ schemaVersion: 1, command: 'check', status: 'error' });
+      expect(parsed.error.kind).toBe('invalid-input');
+      expect(client.requests).toHaveLength(0);
+    });
+  });
+
+  describe('telemetry', () => {
+    it('records neither the prompt nor the model response', async () => {
+      repo.commit({ 'src/app.ts': 'export const a = 1;\nexport const SOURCE_MARKER = 22;\nexport const c = 3;\n' });
+      setAIClient(new FakeClient(() => JSON.stringify({ findings: [candidate()], note: 'RESPONSE_MARKER' })));
+
+      const result = await runCheck(repo, { base: 'main' });
+
+      expect(result.exitCode).toBe(0);
+      const recorded = recordedTelemetry();
+      expect(recorded).not.toContain('SOURCE_MARKER');
+      expect(recorded).not.toContain('RESPONSE_MARKER');
+      expect(result.stdout).not.toContain('SOURCE_MARKER');
+      expect(result.stderr).toBe('');
+    });
+
+    it('does not keep model responses in the on-disk response cache', async () => {
+      repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
+      const generate = jest.fn(async () => ({ response: findingsReply([]) }));
+      setAIClient(new OllamaAIClient({ generate } as unknown as Ollama));
+      const originalCwd = process.cwd();
+      process.chdir(repo.root);
+
+      try {
+        await runCheck(repo, { base: 'main' });
+        await runCheck(repo, { base: 'main' });
+      } finally {
+        process.chdir(originalCwd);
+      }
+
+      // Every run asks the model again and leaves nothing behind in the checkout.
+      expect(generate).toHaveBeenCalledTimes(2);
+      expect(fs.existsSync(path.join(repo.root, '.dhruv-cache'))).toBe(false);
+      expect(repo.git('status', '--porcelain', '--ignored')).toBe('');
+    });
+  });
+
   describe('JSON mode', () => {
     it('writes exactly one object to stdout for a reviewed range', async () => {
       setSessionConfig({ responseFormat: 'json', model: 'test-model' });
@@ -392,6 +798,8 @@ describe('dhruv check --base', () => {
       expect(parsed.refs.base.commit).toBe(baseSha);
       expect(parsed.refs.head).toBe(head);
       expect(parsed.coverage).toMatchObject({ changedFiles: 1, analyzedFiles: 1, complete: true });
+      expect(parsed.findings).toEqual([]);
+      expect(parsed.exclusions).toEqual([]);
       expect(JSON.stringify(parsed)).not.toContain('export const n');
     });
 
