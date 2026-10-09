@@ -366,6 +366,15 @@ describe('Dhruv CLI Core Systems', () => {
       expect(client.computations).toBe(before + 1);
     });
 
+    it('neither reads nor fills the cache for a request that opts out', async () => {
+      await ask({ prompt: 'hello', cache: false });
+      await ask({ prompt: 'hello', cache: false });
+      expect(client.computations).toBe(2);
+
+      await ask({ prompt: 'hello' });
+      expect(client.computations).toBe(3);
+    });
+
     it('surfaces model-not-found as a typed error', async () => {
       client.failures.set('missing-model', { kind: 'model-not-found', model: 'nope' });
       await expect(ask({ prompt: 'missing-model please' })).rejects.toMatchObject({

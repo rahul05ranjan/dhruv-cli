@@ -33,6 +33,8 @@ export interface AIRequest {
   model?: string;
   onToken?: (token: string) => void;
   signal?: AbortSignal;
+  /** Set to false to neither read nor write the response cache for this request. */
+  cache?: boolean;
 }
 
 /** The seam. Both adapters implement this; commands and tests depend on it, never on Ollama. */
@@ -137,13 +139,14 @@ export class OllamaAIClient implements AIClient {
       ? `System: ${request.systemMessage}\n\n${request.context ? `Context: ${request.context}\n\n` : ''}Query: ${request.prompt}`
       : request.prompt;
 
-    const cached = readCache(request, model);
+    const useCache = request.cache !== false;
+    const cached = useCache ? readCache(request, model) : undefined;
     if (cached !== undefined) {
       metricsCollector.recordCacheHit('ai-response');
       if (request.onToken) request.onToken(cached);
       return cached;
     }
-    metricsCollector.recordCacheMiss('ai-response');
+    if (useCache) metricsCollector.recordCacheMiss('ai-response');
 
     try {
       const streaming = Boolean(request.onToken);
@@ -172,8 +175,10 @@ export class OllamaAIClient implements AIClient {
         throw new Error(`Model '${model}' not found or returned empty response`);
       }
 
-      writeCache(request, model, result.trim());
-      cleanupCache();
+      if (useCache) {
+        writeCache(request, model, result.trim());
+        cleanupCache();
+      }
       return result.trim();
     } catch (err) {
       throw toAIError(err, model);
@@ -214,7 +219,7 @@ export class InMemoryAIClient implements AIClient {
     }
 
     const key = `${model}:${request.systemMessage ?? ''}:${request.context ?? ''}:${request.prompt}`;
-    const hit = this.store.get(key);
+    const hit = request.cache === false ? undefined : this.store.get(key);
     if (hit && this.now() - hit.createdAt <= this.ttlMs) {
       if (request.onToken) request.onToken(hit.response);
       return hit.response;
@@ -222,7 +227,7 @@ export class InMemoryAIClient implements AIClient {
 
     this.computations += 1;
     const response = this.responses.get(request.prompt) ?? `response:${request.prompt}`;
-    this.store.set(key, { response, createdAt: this.now() });
+    if (request.cache !== false) this.store.set(key, { response, createdAt: this.now() });
     if (request.onToken) request.onToken(response);
     return response;
   }
