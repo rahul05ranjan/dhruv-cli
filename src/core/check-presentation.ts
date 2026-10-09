@@ -60,21 +60,28 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
+/** Escape terminal controls and invisible format marks without changing JSON values. */
+function terminalSafe(value: string): string {
+  return Array.from(value, (character) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(character)
+    ? `\\u{${character.codePointAt(0)!.toString(16).padStart(4, '0')}}`
+    : character).join('');
+}
+
 function renderText(result: CheckResult): { stdout?: string; stderr?: string } {
   if ('error' in result) {
-    const hint = result.error.hint ? `\n${result.error.hint}` : '';
-    return { stderr: `ERROR ${result.error.message}${hint}\n` };
+    const hint = result.error.hint ? `\n${terminalSafe(result.error.hint)}` : '';
+    return { stderr: `ERROR ${terminalSafe(result.error.message)}${hint}\n` };
   }
 
   const { refs, policy, coverage, exclusions, findings, summary } = result;
   const overrides = policy.overrides.length > 0 ? `, overridden for this run: ${policy.overrides.join(', ')}` : '';
   const lines = [
-    `Dhruv check: ${refs.base.ref} (${short(refs.base.commit)}) .. HEAD (${short(refs.head)}), merge base ${short(refs.mergeBase)}`,
+    `Dhruv check: ${terminalSafe(refs.base.ref)} (${short(refs.base.commit)}) .. HEAD (${short(refs.head)}), merge base ${short(refs.mergeBase)}`,
     `Base commit ${refs.base.commit}`,
     `Merge base ${refs.mergeBase}`,
     `Head commit ${refs.head}`,
-    `Model ${result.model}`,
-    `Policy ${policy.file ?? 'built-in defaults'}${overrides}`,
+    `Model ${terminalSafe(result.model)}`,
+    `Policy ${policy.file ?? 'built-in defaults'} (base commit ${short(policy.sourceCommit)})${overrides}`,
     '',
   ];
   if (coverage.changedFiles === 0) {
@@ -91,10 +98,10 @@ function renderText(result: CheckResult): { stdout?: string; stderr?: string } {
   for (const finding of findings) {
     lines.push(
       '',
-      `[${finding.severity.toUpperCase()}] ${finding.path}:${finding.line}`,
-      `  Reason: ${finding.reason}`,
-      `  Evidence: ${finding.evidence}`,
-      `  Recommendation: ${finding.recommendation}`,
+      `[${finding.severity.toUpperCase()}] ${terminalSafe(finding.path)}:${finding.line}`,
+      `  Reason: ${terminalSafe(finding.reason)}`,
+      `  Evidence: ${terminalSafe(finding.evidence)}`,
+      `  Recommendation: ${terminalSafe(finding.recommendation)}`,
     );
   }
   const { invalid, offDiff, duplicate, belowMinSeverity } = summary.omitted;
@@ -110,11 +117,11 @@ function renderText(result: CheckResult): { stdout?: string; stderr?: string } {
   if (skipped.length > 0) {
     const counts = EXCLUSION_REASONS.filter((reason) => reason !== 'truncated' && coverage.byReason[reason] > 0).map((reason) => `${coverage.byReason[reason]} ${reason}`);
     lines.push('', `Not analyzed (${skipped.length}): ${counts.join(', ')}`);
-    for (const { path, reason } of skipped) lines.push(`  ${path}  (${reason})`);
+    for (const { path, reason } of skipped) lines.push(`  ${terminalSafe(path)}  (${reason})`);
   }
   if (truncated.length > 0) {
     lines.push('', `Partially analyzed (${truncated.length}):`);
-    for (const { path, reason } of truncated) lines.push(`  ${path}  (${reason})`);
+    for (const { path, reason } of truncated) lines.push(`  ${terminalSafe(path)}  (${reason})`);
   }
 
   const stderr = result.status === 'incomplete'

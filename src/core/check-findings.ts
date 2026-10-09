@@ -104,8 +104,8 @@ function compare<T extends string | number>(a: T, b: T): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Findings that agree on these describe the same issue. */
-function issueKey(finding: CheckFinding): string {
+/** Findings with the same normalized summary describe the same Finding. */
+function findingKey(finding: CheckFinding): string {
   return finding.reason.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
@@ -151,12 +151,12 @@ export function readFindings(response: string, files: RangeFile[], minSeverity: 
   // Sorting first makes the result, and which duplicate survives, independent of the model's order.
   const rank = (finding: CheckFinding) => CHECK_SEVERITIES.indexOf(finding.severity);
   valid.sort((a, b) =>
-    compare(a.path, b.path) || compare(a.line, b.line) || compare(rank(a), rank(b)) || compare(issueKey(a), issueKey(b))
+    compare(a.path, b.path) || compare(a.line, b.line) || compare(rank(a), rank(b)) || compare(findingKey(a), findingKey(b))
     || compare(a.reason, b.reason) || compare(a.evidence, b.evidence) || compare(a.recommendation, b.recommendation));
 
   const seen = new Set<string>();
   const distinct = valid.filter((finding) => {
-    const key = JSON.stringify([finding.path, finding.line, issueKey(finding)]);
+    const key = JSON.stringify([finding.path, finding.line, findingKey(finding)]);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

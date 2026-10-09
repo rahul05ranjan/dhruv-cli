@@ -3,8 +3,9 @@ import { ask, AIError, AIRequest } from '../core/ai.js';
 import { describeAIError } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { securityManager } from '../core/security.js';
-import { ingestCommittedRange, readCommittedFile, resolveCommittedRange, type RangeFile } from '../core/committed-range.js';
-import { CHECK_SEVERITIES, readFindings, summarizeFindings } from '../core/check-findings.js';
+import { ingestCommittedRange, readCommittedFile, resolveCommittedRange } from '../core/committed-range.js';
+import { readFindings, summarizeFindings } from '../core/check-findings.js';
+import { buildCheckPrompt } from '../core/check-prompt.js';
 import { CHECK_POLICY_FILE, MAX_POLICY_BYTES, resolveCheckPolicy, type CheckPolicyOverrides } from '../core/check-policy.js';
 import { presentCheckResult, type CheckRangeFacts, type CheckResult } from '../core/check-presentation.js';
 
@@ -18,41 +19,6 @@ export interface CheckOptions extends CheckPolicyOverrides {
 /** Seams for tests. */
 export interface CheckDeps {
   cwd?: string;
-}
-
-function formatRanges(file: RangeFile): string {
-  return file.changedLines
-    .flatMap(({ start, end }) => Array.from({ length: end - start + 1 }, (_, offset) => start + offset))
-    .join(', ');
-}
-
-/** Renders a patch with new-side line numbers so the model can cite changed lines. */
-function numberPatch(patch: string): string {
-  const out: string[] = [];
-  let line = 0;
-  for (const text of patch.replace(/\n$/, '').split('\n')) {
-    const header = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(text);
-    if (header) {
-      line = Number(header[1]);
-      out.push(text);
-    } else if (text.startsWith('+')) {
-      out.push(`+${String(line++).padStart(5)}: ${text.slice(1)}`);
-    } else if (text.startsWith(' ')) {
-      out.push(` ${String(line++).padStart(5)}: ${text.slice(1)}`);
-    } else if (text.startsWith('-')) {
-      out.push(`-       : ${text.slice(1)}`);
-    }
-  }
-  return out.join('\n');
-}
-
-function buildPrompt(files: RangeFile[]): string {
-  const sections = files.map((file) => {
-    const renamed = file.oldPath ? ` (renamed from ${file.oldPath})` : '';
-    return `FILE ${file.path}${renamed} - changed lines: ${formatRanges(file)}\n${numberPatch(file.patch)}`;
-  });
-  const shape = `{"findings":[{"path":"<file path as shown>","line":<number of a + line>,"severity":"<${CHECK_SEVERITIES.join('|')}>","reason":"<one-sentence summary of the problem>","evidence":"<what in the change shows it>","recommendation":"<how to fix it>"}]}`;
-  return `Please review this committed change. Only the lines marked with + are new and carry their line number; the rest is context. Report concrete problems in the changed lines only.\n\nRespond with one JSON object in exactly this shape and nothing else:\n${shape}\nRespond with {"findings":[]} if you find nothing worth reporting.\n\nCODE_START\n${sections.join('\n\n')}\nCODE_END`;
 }
 
 /** Races the AI request against the timeout and Ctrl-C; always cleans up its timer and listener. */
@@ -99,13 +65,13 @@ function aiFailure(error: unknown, facts: CheckRangeFacts): CheckResult {
   };
 }
 
-function invalidPolicy(problems: string[]): CheckResult {
+function invalidPolicy(problems: string[], sourceCommit: string): CheckResult {
   return {
     status: 'error',
     error: {
       kind: 'invalid-policy',
       message: `Invalid policy ${CHECK_POLICY_FILE}: ${problems.join('; ')}.`,
-      hint: `Fix ${CHECK_POLICY_FILE} and commit it; the policy is read from the HEAD commit.`,
+      hint: `Fix ${CHECK_POLICY_FILE} on the base branch (commit ${sourceCommit}).`,
     },
   };
 }
@@ -130,12 +96,12 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
   const resolved = resolveCommittedRange({ base: options.base, cwd: deps.cwd ?? process.cwd() });
   if (!resolved.ok) return { status: 'error', error: { kind: resolved.reason, message: resolved.message } };
 
-  // The policy is data from the reviewed commit: it is parsed, never executed, and settled before any AI request.
-  const policyFile = readCommittedFile(resolved, CHECK_POLICY_FILE, MAX_POLICY_BYTES);
-  if (policyFile.status === 'unusable') return invalidPolicy([`the file ${policyFile.problem}`]);
-  const resolution = resolveCheckPolicy(policyFile.status === 'read' ? policyFile.content : undefined, options);
+  // The base commit is the trusted policy source for a PR comparison.
+  const policyFile = readCommittedFile(resolved, CHECK_POLICY_FILE, MAX_POLICY_BYTES, resolved.base.commit);
+  if (policyFile.status === 'unusable') return invalidPolicy([`the file ${policyFile.problem}`], resolved.base.commit);
+  const resolution = resolveCheckPolicy(policyFile.status === 'read' ? policyFile.content : undefined, options, resolved.base.commit);
   if (!resolution.ok) {
-    if (resolution.source === 'file') return invalidPolicy(resolution.problems);
+    if (resolution.source === 'file') return invalidPolicy(resolution.problems, resolved.base.commit);
     return { status: 'error', error: { kind: 'invalid-input', message: `Invalid option: ${resolution.problems.join('; ')}.`, hint: 'Run: dhruv check --help' } };
   }
   const { policy } = resolution;
@@ -165,7 +131,7 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
   try {
     // The response cache would leave model output in the checkout and replay stale reviews.
     response = await askWithDeadline({
-      prompt: buildPrompt(range.files),
+      prompt: buildCheckPrompt(range.files),
       systemMessage: getSystemMessage('check'),
       model: config.model,
       cache: false,

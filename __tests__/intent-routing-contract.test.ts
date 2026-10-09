@@ -7,6 +7,9 @@ const execFileAsync = promisify(execFile);
 const repoRoot = resolve(__dirname, '..');
 const sourceEntry = './src/index.ts';
 const loaderEntry = 'ts-node/esm';
+// Routing is the contract here; point AI requests at a closed local port so
+// these subprocess tests never depend on a developer's Ollama installation.
+const isolatedEnv = { ...process.env, DHRUV_METRICS_ENABLED: 'false', OLLAMA_HOST: 'http://127.0.0.1:1' };
 
 describe('Intent Routing End-to-End Contract', () => {
   it('exits with code 1 and outputs guidance when low-confidence query is run non-interactively', async () => {
@@ -16,7 +19,7 @@ describe('Intent Routing End-to-End Contract', () => {
         ['--loader', loaderEntry, sourceEntry, 'random unknown query 12345'],
         {
           cwd: repoRoot,
-          env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+          env: isolatedEnv,
         }
       );
       throw new Error('Expected process to fail');
@@ -36,7 +39,7 @@ describe('Intent Routing End-to-End Contract', () => {
         ['--loader', loaderEntry, sourceEntry, 'audit security vulnerabilities in src/config', '--json'],
         {
           cwd: repoRoot,
-          env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+          env: isolatedEnv,
         }
       );
       stdout = result.stdout;
@@ -63,7 +66,7 @@ describe('Intent Routing End-to-End Contract', () => {
         ['--loader', loaderEntry, sourceEntry, 'review src/config/config.ts', '--json'],
         {
           cwd: repoRoot,
-          env: { ...process.env, DHRUV_METRICS_ENABLED: 'false' },
+          env: isolatedEnv,
         }
       );
       stdout = result.stdout;

@@ -21,7 +21,7 @@ The committed changes from the merge base of a base ref and `HEAD` up to `HEAD`,
 _Avoid_: Branch diff, PR diff
 
 **Check Policy**:
-The checked-in settings, read from the reviewed commit, that fix which changed files a `check` run covers, how much of them it sends, and which Findings it shows.
+The checked-in settings, read from the resolved base commit, that fix which changed files a `check` run covers, how much of them it sends, and which Findings it shows.
 _Avoid_: Check config, rules file
 
 **Finding**:

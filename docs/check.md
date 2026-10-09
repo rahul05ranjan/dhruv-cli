@@ -24,7 +24,7 @@ Base commit 3ea120d02fdd78503dff98c6e627c520b6d03de0
 Merge base 3ea120d02fdd78503dff98c6e627c520b6d03de0
 Head commit d42be07cca7202e9e71f87a3901bde4c5fb25fc3
 Model qwen2.5-coder:7b
-Policy .dhruv-check.json
+Policy .dhruv-check.json (base commit 3ea120d02fdd)
 
 Analyzed 1 of 3 changed files.
 1 finding: 1 high.
@@ -180,7 +180,7 @@ The job passes when the review completed with full coverage, whatever it found. 
 
 | What the pull request controls | Effect | What to do |
 | --- | --- | --- |
-| `.dhruv-check.json` | The policy is read from the `HEAD` commit, so a pull request reviews itself under its own policy. It can exclude its own files, and files left out by the policy count as `ignored`, which keeps coverage complete and the exit code 0, even with `--strict-coverage`. It can also raise `minSeverity` to hide findings. | The result's `policy` object states the settings that were applied, and every left-out file is in `exclusions` with reason `ignored`. A pull request that edits or deletes the policy also has `.dhruv-check.json` in `exclusions`. Compare `policy` with the values you expect, require review for that file (for example with CODEOWNERS), or pass the settings as flags: a flag replaces its setting whatever the file says. |
+| `.dhruv-check.json` | The policy is read from the resolved base commit, so a pull request cannot change or delete the policy for its own check. Changes to the policy in the pull request do not apply until they reach the base branch. | The result records `policy.sourceCommit`, the exact base commit used. A trusted maintainer can still supply command-line overrides for one run. |
 | `.dhruv-config.json` | Read from the working directory, so from the checkout. It can change the model, the timeout, and the output format. | Pass `--model`, `--timeout`, and `--json` as flags, as the workflow does. Flags win. |
 | The changed code itself | The patch is model input. The prompt tells the model to treat it as data, but text in a change can still steer a model away from reporting a problem. | Treat findings as advice for a human reviewer and never as approval. |
 | The workflow file | On `pull_request`, GitHub runs the workflow as the pull request has it, so someone who can open a pull request can change these steps and run their own commands on your runner. Dhruv has no part in that. | Follow GitHub's guidance for self-hosted runners: keep them off public repositories, and require approval before workflows from outside contributors run. |
@@ -195,8 +195,8 @@ The job passes when the review completed with full coverage, whatever it found. 
 | `--include <globs...>` | `include` | `**` | Review only changed paths matching these globs. |
 | `--exclude <globs...>` | `exclude` | none | Leave out changed paths matching these globs. |
 | `--max-changed-files <count>` | `maxChangedFiles` | `50` | Consider at most this many changed files, in path order. |
-| `--max-file-bytes <bytes>` | `maxFileBytes` | `65536` | Send at most this many bytes of one file's patch. |
-| `--max-total-bytes <bytes>` | `maxTotalBytes` | `262144` | Send at most this many patch bytes in total. |
+| `--max-file-bytes <bytes>` | `maxFileBytes` | `65536` | Send at most this many UTF-8 bytes in one rendered file section. |
+| `--max-total-bytes <bytes>` | `maxTotalBytes` | `262144` | Send at most this many UTF-8 bytes in the complete prompt. |
 | `--min-severity <severity>` | `minSeverity` | `info` | Show findings of this severity or higher. |
 | `--strict-coverage` | | off | Exit 2 when relevant changed source was skipped or truncated. |
 | `--json` | | off | Write one JSON object to stdout instead of text. |
@@ -227,13 +227,13 @@ The policy is `.dhruv-check.json` at the repository root. It is optional; withou
 | `include` | list of globs | `["**"]` | A changed file is in scope when at least one include glob matches it and no exclude glob does. Needs at least one glob. |
 | `exclude` | list of globs | `[]` | Changed files matching any of these are out of scope and reported as `ignored`. |
 | `maxChangedFiles` | whole number, 1 to 10000 | `50` | Number of in-scope changed files considered, in path order. Deleted and unsupported files count. Source files past the limit are reported as `file-limit`. |
-| `maxFileBytes` | whole number, 1 to 16777216 | `65536` | Bytes of one file's patch (its changed hunks with their context, not the file's size) sent to the model. A larger patch is cut at a hunk boundary and reported as `truncated`; when not even the first hunk fits, the file is `oversized`. |
-| `maxTotalBytes` | whole number, 1 to 16777216 | `262144` | Patch bytes sent in total. A file that no longer fits is skipped as `total-limit`; a later, smaller file may still fit. |
+| `maxFileBytes` | whole number, 1 to 16777216 | `65536` | UTF-8 bytes of one file's rendered prompt section, including path, changed-line labels, numbered patch and context. A larger section is cut at a hunk boundary and reported as `truncated`; when not even the first hunk fits, the file is `oversized`. |
+| `maxTotalBytes` | whole number, 1 to 16777216 | `262144` | UTF-8 bytes of the complete model prompt, including instructions, file sections and separators. A file that no longer fits is skipped as `total-limit`; a later, smaller file may still fit. |
 | `minSeverity` | severity | `"info"` | Findings below this severity are counted in `summary.omitted.belowMinSeverity` and not shown. |
 
 Rules that apply to the file:
 
-- It is read from the `HEAD` commit, like the rest of the review. Commit a policy change before it takes effect; an uncommitted edit is not used.
+- It is read from the resolved `--base` commit. Changes committed only on the reviewed branch and uncommitted edits are not used. The result records the source commit.
 - It must be a regular file, at most 65536 bytes, holding one JSON object. A symbolic link is refused.
 - Unknown keys, wrong types, and out-of-range values are errors. An invalid policy fails the run with `invalid-policy` and exit code 1 before any AI request.
 
@@ -263,9 +263,9 @@ Every changed file that was not analyzed in full is listed in `exclusions` with 
 | `unsupported` | yes | Not one of the supported source file extensions. |
 | `no-line-changes` | yes | The change adds or modifies no line: a pure rename, a mode change, or a change that only removes lines. |
 | `unreadable` | no | Git could not produce the file's patch. |
-| `oversized` | no | Not even the first changed hunk fits `maxFileBytes`. |
+| `oversized` | no | Not even the first changed hunk and its file heading fit `maxFileBytes`. |
 | `file-limit` | no | Past `maxChangedFiles`. |
-| `total-limit` | no | Would push the total past `maxTotalBytes`. |
+| `total-limit` | no | Would push the whole prompt past `maxTotalBytes`. |
 | `truncated` | no | Analyzed up to `maxFileBytes`; the remaining hunks were not. |
 
 Complete coverage means nothing was dropped for size or readability. It does not mean every changed file was reviewed: the rows marked "yes" are never sent to the model.
@@ -287,6 +287,7 @@ With `--json`, stdout is one line holding one object, for success and for failur
   "model": "qwen2.5-coder:7b",
   "policy": {
     "file": ".dhruv-check.json",
+    "sourceCommit": "3ea120d02fdd78503dff98c6e627c520b6d03de0",
     "schemaVersion": 1,
     "include": ["**"],
     "exclude": ["dist", "*.min.js"],
@@ -345,7 +346,7 @@ With `--json`, stdout is one line holding one object, for success and for failur
 | `status` | always | `ok`, `incomplete`, `error`, or `cancelled`. See [Exit codes](#exit-codes). |
 | `refs` | once the range was read | `base.ref` as you typed it, and the full commit IDs of the base, the merge base, and `HEAD`. |
 | `model` | once the range was read | The model the run was configured to ask. |
-| `policy` | once the range was read | The settings applied, after flags. `file` is `.dhruv-check.json` or `null` when the defaults applied; `overrides` lists the keys replaced by flags. |
+| `policy` | once the range was read | The settings applied, after flags. `sourceCommit` is the resolved base commit. `file` is `.dhruv-check.json` or `null` when the defaults applied; `overrides` lists the keys replaced by flags. |
 | `summary` | `ok`, `incomplete` | Counts, described below. |
 | `findings` | `ok`, `incomplete` | The reported findings, ordered by path, line, then severity. |
 | `coverage` | once the range was read | Counts, described below. |
@@ -354,7 +355,7 @@ With `--json`, stdout is one line holding one object, for success and for failur
 
 "Once the range was read" covers every `ok` and `incomplete` result and the failures that happen after it, such as an unreachable model. Earlier failures, such as an unknown ref or an invalid policy, carry only `schemaVersion`, `command`, `status`, and `error`.
 
-A command line that cannot be parsed, such as an unknown option, exits 1 with a usage message on stderr and no JSON object. Treat an empty stdout as a failure.
+A command line that cannot be parsed, such as an unknown option or a missing option value, exits 1. With `--json`, stdout still contains one error object with `kind: "invalid-input"`; usage diagnostics may appear on stderr.
 
 **`findings[]`**
 

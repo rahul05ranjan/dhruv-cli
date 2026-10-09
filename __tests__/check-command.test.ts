@@ -14,6 +14,7 @@ import type { AIClient, AIRequest } from '../src/core/ai';
 import * as loggerModule from '../src/core/logger';
 import { resetSessionConfig, setSessionConfig } from '../src/config/config';
 import { securityManager } from '../src/core/security';
+import { presentCheckResult, type CheckResult } from '../src/core/check-presentation';
 import { TempRepo } from './helpers/git-repo';
 
 jest.mock('chalk', () => {
@@ -340,6 +341,46 @@ describe('dhruv check --base', () => {
       expect(client.requests[0].prompt).toContain('src/ünï cödé.ts');
     });
 
+    (process.platform === 'win32' ? it.skip : it)('escapes controls in real Git paths while preserving exact JSON paths', async () => {
+      const changed = 'src/\u001b[2Jreview\u202E.ts';
+      const excluded = 'notes/\u001b[31mreadme.md';
+      repo.commit({ [changed]: 'export const ok = 1;\n', [excluded]: '# notes\n' });
+      client = new FakeClient(() => findingsReply([candidate({ path: changed, line: 1 })]));
+      setAIClient(client);
+
+      const text = await runCheck(repo, { base: 'main' });
+      setSessionConfig({ responseFormat: 'json' });
+      const json = await runCheck(repo, { base: 'main' });
+      const parsed = JSON.parse(json.stdout) as JsonResult;
+
+      expect(text.stdout).not.toContain('\u001b');
+      expect(text.stdout).not.toContain('\u202e');
+      expect(text.stdout).toContain('\\u{001b}[31mreadme.md');
+      expect(text.stdout).toContain('\\u{001b}[2Jreview\\u{202e}.ts');
+      expect(parsed.findings[0].path).toBe(changed);
+      expect(parsed.exclusions).toContainEqual({ path: excluded, reason: 'unsupported' });
+      expect(client.requests[0].prompt).toContain(changed);
+    });
+
+    it('enforces exact UTF-8 bytes of the rendered file section and complete prompt', async () => {
+      repo.commit({ 'src/ü.ts': 'export const café = 1;\n' });
+      await runCheck(repo, { base: 'main' });
+      const prompt = client.requests[0].prompt;
+      const section = prompt.slice(prompt.indexOf('FILE '), prompt.indexOf('\nCODE_END'));
+      const fileBytes = Buffer.byteLength(section);
+      const totalBytes = Buffer.byteLength(prompt);
+
+      const exact = await runCheck(repo, { base: 'main', maxFileBytes: fileBytes, maxTotalBytes: totalBytes });
+      expect(exact.exitCode).toBe(0);
+      expect(Buffer.byteLength(client.requests[1].prompt)).toBe(totalBytes);
+
+      const oversized = await runCheck(repo, { base: 'main', maxFileBytes: fileBytes - 1 });
+      expect(oversized.stdout).toContain('oversized');
+      const totalLimited = await runCheck(repo, { base: 'main', maxTotalBytes: totalBytes - 1 });
+      expect(totalLimited.stdout).toContain('total-limit');
+      expect(client.requests).toHaveLength(2);
+    });
+
     it('applies file-count limits in path order and reports incomplete coverage', async () => {
       repo.commit({ 'src/c.ts': 'export const c = 1;\n', 'src/a.ts': 'export const a = 1;\n', 'src/b.ts': 'export const b = 1;\n' });
 
@@ -368,10 +409,13 @@ describe('dhruv check --base', () => {
     it('stops adding files once the total prompt budget is spent', async () => {
       repo.commit({ 'src/a.ts': `${'export const a = 1;\n'.repeat(20)}`, 'src/b.ts': `${'export const b = 1;\n'.repeat(20)}` });
 
-      const result = await runCheck(repo, { base: 'main', maxTotalBytes: 700 });
+      await runCheck(repo, { base: 'main', maxChangedFiles: 1 });
+      const oneFileBudget = Buffer.byteLength(client.requests[0].prompt);
+      const result = await runCheck(repo, { base: 'main', maxTotalBytes: oneFileBudget });
 
-      expect(client.requests[0].prompt).toContain('src/a.ts');
-      expect(client.requests[0].prompt).not.toContain('src/b.ts');
+      expect(Buffer.byteLength(client.requests[1].prompt)).toBe(oneFileBudget);
+      expect(client.requests[1].prompt).toContain('src/a.ts');
+      expect(client.requests[1].prompt).not.toContain('src/b.ts');
       expect(result.stdout).toMatch(/incomplete/i);
     });
 
@@ -813,6 +857,61 @@ describe('dhruv check --base', () => {
   });
 
   describe('JSON mode', () => {
+    it('escapes control and format characters in text but preserves JSON path values', () => {
+      const changed = 'src/\u001b[2Jreview\u202E.ts';
+      const excluded = 'notes/\u001b[31mreadme.md';
+      const result: CheckResult = {
+        status: 'ok',
+        refs: { base: { ref: 'main', commit: baseSha }, mergeBase: baseSha, head: baseSha },
+        model: 'test-model',
+        policy: { ...DEFAULT_POLICY, schemaVersion: 1, minSeverity: 'info', sourceCommit: baseSha },
+        coverage: { changedFiles: 2, analyzedFiles: 1, skippedFiles: 1, truncatedFiles: 0, complete: true, byReason: { ...NO_EXCLUSIONS, unsupported: 1 } },
+        exclusions: [{ path: excluded, reason: 'unsupported' }],
+        findings: [{ path: changed, line: 1, severity: 'high', reason: 'Unsafe change', evidence: 'changed line', recommendation: 'Fix it' }],
+        summary: { findings: 1, bySeverity: { critical: 0, high: 1, medium: 0, low: 0, info: 0 }, candidates: 1, omitted: { invalid: 0, offDiff: 0, duplicate: 0, belowMinSeverity: 0 } },
+      };
+      const stdout: string[] = [];
+      const outSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => { stdout.push(String(chunk)); return true; });
+      try {
+        setSessionConfig({ responseFormat: 'text' });
+        presentCheckResult(result);
+        expect(stdout.join('')).not.toContain('\u001b');
+        expect(stdout.join('')).not.toContain('\u202e');
+        expect(stdout.join('')).toContain('\\u{001b}[2Jreview\\u{202e}.ts');
+        expect(stdout.join('')).toContain('\\u{001b}[31mreadme.md');
+        stdout.length = 0;
+        setSessionConfig({ responseFormat: 'json' });
+        presentCheckResult(result);
+        const parsed = JSON.parse(stdout.join('')) as JsonResult;
+        expect(parsed.findings[0].path).toBe(changed);
+        expect(parsed.exclusions[0].path).toBe(excluded);
+      } finally {
+        outSpy.mockRestore();
+      }
+    });
+    it.each([
+      ['unknown option', ['--unknown-check-option'], /unknown option/],
+      ['missing value', ['--base'], /argument missing/],
+    ])('returns one JSON error for %s during argument parsing', async (_label, invalid, message) => {
+      resetSessionConfig();
+      const stdout: string[] = [];
+      const outSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => { stdout.push(String(chunk)); return true; });
+      const errSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await runCheckCli(['node', 'dhruv', '--json', 'check', ...invalid]);
+      } finally {
+        outSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+      const lines = stdout.join('').trim().split('\n');
+      expect(lines).toHaveLength(1);
+      const parsed = JSON.parse(lines[0]) as JsonResult;
+      expect(parsed).toMatchObject({ schemaVersion: 1, command: 'check', status: 'error' });
+      expect(parsed.error).toMatchObject({ kind: 'invalid-input' });
+      expect(parsed.error.message).toMatch(message);
+      expect(process.exitCode).toBe(1);
+      expect(client.requests).toHaveLength(0);
+    });
     it('writes exactly one object to stdout for a reviewed range', async () => {
       setSessionConfig({ responseFormat: 'json', model: 'test-model' });
       const head = repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
@@ -876,8 +975,8 @@ describe('dhruv check --base', () => {
         const { parsed, exitCode } = await jsonCheck();
 
         expect(exitCode).toBe(0);
-        expect(parsed.policy).toEqual(DEFAULT_POLICY);
-        expect(text.stdout).toMatch(/^Policy built-in defaults$/m);
+        expect(parsed.policy).toEqual({ ...DEFAULT_POLICY, sourceCommit: repo.git('rev-parse', 'main') });
+        expect(text.stdout).toMatch(/^Policy built-in defaults \(base commit /m);
       });
 
       it('applies the include and exclude globs of the checked-in policy', async () => {
@@ -914,8 +1013,8 @@ describe('dhruv check --base', () => {
           complete: true,
           byReason: { ...NO_EXCLUSIONS, ignored: 3 },
         });
-        expect(parsed.policy).toEqual({ ...DEFAULT_POLICY, file: POLICY_FILE, include: policy.include, exclude: policy.exclude });
-        expect(text.stdout).toMatch(/^Policy \.dhruv-check\.json$/m);
+        expect(parsed.policy).toEqual({ ...DEFAULT_POLICY, sourceCommit: repo.git('rev-parse', 'main'), file: POLICY_FILE, include: policy.include, exclude: policy.exclude });
+        expect(text.stdout).toMatch(/^Policy \.dhruv-check\.json \(base commit /m);
         expect(text.stdout).toMatch(/src\/generated\/client\.ts\s+\(ignored\)/);
       });
 
@@ -944,9 +1043,10 @@ describe('dhruv check --base', () => {
         ]);
       });
 
-      it('reads the policy committed at HEAD, never the working tree, and never sends it to the model', async () => {
+      it('reads the policy committed at the base, never HEAD or the working tree', async () => {
+        policyOnBase({ schemaVersion: 1, exclude: ['src/skip.ts'] });
         repo.commit({
-          [POLICY_FILE]: JSON.stringify({ schemaVersion: 1, exclude: ['src/skip.ts'] }),
+          [POLICY_FILE]: JSON.stringify({ schemaVersion: 1, exclude: ['src/keep.ts'] }),
           'src/skip.ts': 'export const SKIPPED_MARKER = 1;\n',
           'src/keep.ts': 'export const k = 1;\n',
         });
@@ -955,7 +1055,7 @@ describe('dhruv check --base', () => {
         const { parsed, exitCode } = await jsonCheck();
 
         expect(exitCode).toBe(0);
-        expect(parsed.policy).toMatchObject({ file: POLICY_FILE, exclude: ['src/skip.ts'] });
+        expect(parsed.policy).toMatchObject({ file: POLICY_FILE, sourceCommit: repo.git('rev-parse', 'main'), exclude: ['src/skip.ts'] });
         expect(parsed.exclusions).toEqual([
           { path: POLICY_FILE, reason: 'unsupported' },
           { path: 'src/skip.ts', reason: 'ignored' },
@@ -963,6 +1063,24 @@ describe('dhruv check --base', () => {
         expect(lastPrompt()).toContain('src/keep.ts');
         expect(lastPrompt()).not.toContain('SKIPPED_MARKER');
         expect(lastPrompt()).not.toContain('schemaVersion');
+      });
+
+      it('does not let a pull request exclude its own source under strict coverage', async () => {
+        policyOnBase({ schemaVersion: 1, include: ['src/**'], maxChangedFiles: 1 });
+        repo.commit({
+          [POLICY_FILE]: JSON.stringify({ schemaVersion: 1, exclude: ['src/**'], minSeverity: 'critical' }),
+          'src/a.ts': 'export const a = 1;\n',
+          'src/b.ts': 'export const b = 1;\n',
+        });
+
+        const { parsed, exitCode } = await jsonCheck({ strictCoverage: true });
+        expect(exitCode).toBe(2);
+        expect(parsed.status).toBe('incomplete');
+        expect(parsed.policy).toMatchObject({
+          file: POLICY_FILE, sourceCommit: repo.git('rev-parse', 'main'), include: ['src/**'], exclude: [], minSeverity: 'info',
+        });
+        expect(parsed.exclusions).toContainEqual({ path: 'src/b.ts', reason: 'file-limit' });
+        expect(lastPrompt()).toContain('src/a.ts');
       });
 
       it.each<[string, unknown, RegExp]>([
@@ -1011,13 +1129,16 @@ describe('dhruv check --base', () => {
       });
 
       it('rejects a policy that is a symbolic link without following it', async () => {
-        repo.commit({ 'src/new.ts': 'export const n = 1;\n', 'LINK_TARGET_MARKER.json': '{"schemaVersion":1}' });
+        repo.git('checkout', '-q', 'main');
+        repo.commit({ 'LINK_TARGET_MARKER.json': '{"schemaVersion":1}' });
         // Commits the link as Git stores it, which works on every platform.
         repo.write('link-target', 'LINK_TARGET_MARKER.json');
         const blob = repo.git('hash-object', '-w', 'link-target');
         fs.rmSync(path.join(repo.root, 'link-target'));
         repo.git('update-index', '--add', '--cacheinfo', `120000,${blob},${POLICY_FILE}`);
         repo.git('commit', '-q', '-m', 'policy link');
+        repo.git('checkout', '-q', '-B', 'feature');
+        repo.commit({ 'src/new.ts': 'export const n = 1;\n' });
 
         const result = await runCheck(repo, { base: 'main' });
 
@@ -1039,10 +1160,11 @@ describe('dhruv check --base', () => {
         const overridden = await jsonCheck({ maxChangedFiles: '5', exclude: ['src/a.ts'], minSeverity: 'low' });
         const text = await runCheck(repo, { base: 'main', maxChangedFiles: '5' });
 
-        expect(checkedIn.parsed.policy).toEqual({ ...DEFAULT_POLICY, file: POLICY_FILE, exclude: ['src/b.ts'], maxChangedFiles: 1, minSeverity: 'high' });
+        expect(checkedIn.parsed.policy).toEqual({ ...DEFAULT_POLICY, sourceCommit: repo.git('rev-parse', 'main'), file: POLICY_FILE, exclude: ['src/b.ts'], maxChangedFiles: 1, minSeverity: 'high' });
         expect(checkedIn.parsed.exclusions).toEqual([{ path: 'src/b.ts', reason: 'ignored' }, { path: 'src/c.ts', reason: 'file-limit' }]);
         expect(overridden.parsed.policy).toEqual({
           ...DEFAULT_POLICY,
+          sourceCommit: repo.git('rev-parse', 'main'),
           file: POLICY_FILE,
           exclude: ['src/a.ts'],
           maxChangedFiles: 5,
@@ -1050,9 +1172,9 @@ describe('dhruv check --base', () => {
           overrides: ['exclude', 'maxChangedFiles', 'minSeverity'],
         });
         expect(overridden.parsed.exclusions).toEqual([{ path: 'src/a.ts', reason: 'ignored' }]);
-        expect(text.stdout).toMatch(/^Policy \.dhruv-check\.json, overridden for this run: maxChangedFiles$/m);
+        expect(text.stdout).toMatch(/^Policy \.dhruv-check\.json \(base commit [^)]+\), overridden for this run: maxChangedFiles$/m);
         // The checked-in file and the checkout are exactly as they were.
-        expect(repo.git('show', `HEAD:${POLICY_FILE}`)).toBe(policy);
+        expect(repo.git('show', `main:${POLICY_FILE}`)).toBe(policy);
         expect(fs.readFileSync(path.join(repo.root, POLICY_FILE), 'utf8')).toBe(policy);
         expect(repo.git('status', '--porcelain')).toBe('');
         expect(repo.git('rev-parse', 'HEAD')).toBe(head);
@@ -1068,6 +1190,7 @@ describe('dhruv check --base', () => {
         expect(exitCode).toBe(0);
         expect(parsed.policy).toEqual({
           file: null,
+          sourceCommit: repo.git('rev-parse', 'main'),
           schemaVersion: 1,
           include: ['src/**'],
           exclude: ['src/x.ts'],
@@ -1123,6 +1246,7 @@ describe('dhruv check --base', () => {
         const parsed = JSON.parse(stdout.join('')) as JsonResult;
         expect(parsed.policy).toEqual({
           file: null,
+          sourceCommit: repo.git('rev-parse', 'main'),
           schemaVersion: 1,
           include: ['src/**'],
           exclude: ['src/a.ts', 'src/b.ts'],
@@ -1269,7 +1393,7 @@ describe('dhruv check --base', () => {
           'src/b.ts': `${'export const b = 1;\n'.repeat(20)}`,
           'src/f.ts': 'export const f = 1;\n',
         });
-        const options = { exclude: ['src/a.ts'], maxChangedFiles: 4, maxTotalBytes: 700 };
+        const options = { exclude: ['src/a.ts'], maxChangedFiles: 4, maxTotalBytes: 1500 };
 
         const first = await jsonCheck(options);
         const second = await jsonCheck(options);

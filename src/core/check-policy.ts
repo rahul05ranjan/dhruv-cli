@@ -2,9 +2,9 @@
  * The project policy of `check`: one checked-in file that fixes what a review
  * covers, so every contributor and CI job reviews the same scope.
  *
- * The policy is `.dhruv-check.json` at the repository root, read from the `HEAD`
- * commit like the rest of the reviewed range: an uncommitted edit never takes
- * part. It is parsed as JSON data and nothing else, and must be a regular file of
+ * The policy is `.dhruv-check.json` at the repository root, read from the
+ * resolved base commit. A pull request cannot change the policy for its own
+ * review. It is parsed as JSON data and must be a regular file of
  * at most 64 KiB. Without the file these defaults apply:
  *
  * ```json
@@ -25,9 +25,9 @@
  *   and no exclude glob does; the rest is reported as `ignored`.
  * - `maxChangedFiles` (1 to 10000): changed files in scope beyond this count, in
  *   path order, are not analyzed.
- * - `maxFileBytes` (1 to 16777216): bytes of one file's patch (changed hunks with
- *   their context) sent to the model. A larger patch is truncated at a hunk boundary.
- * - `maxTotalBytes` (1 to 16777216): patch bytes sent in total. A file that no
+ * - `maxFileBytes` (1 to 16777216): UTF-8 bytes of a file's rendered prompt section.
+ *   A larger section is truncated at a hunk boundary.
+ * - `maxTotalBytes` (1 to 16777216): UTF-8 bytes of the complete model prompt. A file that no
  *   longer fits is skipped; later, smaller files may still fit.
  * - `minSeverity` (a `CHECK_SEVERITIES` value): less severe findings are counted
  *   but not shown.
@@ -74,6 +74,8 @@ export type CheckPolicyOverrides = Partial<Record<CheckPolicySetting, unknown>>;
 export interface EffectiveCheckPolicy extends CheckPolicy {
   /** The policy file that was read, or `null` when the defaults applied. */
   file: string | null;
+  /** Resolved base commit whose policy (or absence of policy) was used. */
+  sourceCommit: string;
   schemaVersion: typeof CHECK_POLICY_SCHEMA_VERSION;
   /** Settings replaced on the command line for this run. */
   overrides: CheckPolicySetting[];
@@ -164,7 +166,7 @@ function readOverrides(overrides: CheckPolicyOverrides): Partial<Record<CheckPol
  * Layers the defaults, the checked-in policy file (when there is one) and the
  * command-line overrides. Neither source is ever rewritten.
  */
-export function resolveCheckPolicy(fileText: string | undefined, overrides: CheckPolicyOverrides = {}): CheckPolicyOutcome {
+export function resolveCheckPolicy(fileText: string | undefined, overrides: CheckPolicyOverrides = {}, sourceCommit = ''): CheckPolicyOutcome {
   const fromOptions = validate(optionsSchema, readOverrides(overrides), false);
   if (fromOptions.problems.length > 0) return { ok: false, source: 'options', problems: fromOptions.problems };
 
@@ -176,6 +178,7 @@ export function resolveCheckPolicy(fileText: string | undefined, overrides: Chec
     ok: true,
     policy: {
       file: fileText === undefined ? null : CHECK_POLICY_FILE,
+      sourceCommit,
       schemaVersion: CHECK_POLICY_SCHEMA_VERSION,
       include: merged.include,
       exclude: merged.exclude,

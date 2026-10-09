@@ -351,8 +351,11 @@ describe('dhruv check documentation contract', () => {
       const example = fencedBlock('Policy file', 'json');
       expect(resolveCheckPolicy(example)).toMatchObject({ ok: true });
 
+      repo.git('checkout', '-q', 'main');
+      repo.commit({ [CHECK_POLICY_FILE]: example }, 'base policy');
+      repo.git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+      repo.git('checkout', '-q', '-B', 'feature');
       repo.commit({
-        [CHECK_POLICY_FILE]: example,
         'src/app.ts': 'export const app = 1;\n',
         'src/generated/api.ts': 'export const api = 1;\n',
         'tools/build.ts': 'export const build = 1;\n',
@@ -361,7 +364,7 @@ describe('dhruv check documentation contract', () => {
       const result = await runDocumented(repo, ['dhruv', 'check', '--base', 'origin/main', '--json']);
 
       const parsed = json(result);
-      expect(parsed.policy).toEqual({ file: CHECK_POLICY_FILE, ...(JSON.parse(example) as Json), overrides: [] });
+      expect(parsed.policy).toEqual({ file: CHECK_POLICY_FILE, sourceCommit: repo.git('rev-parse', 'origin/main'), ...(JSON.parse(example) as Json), overrides: [] });
       const reasons = Object.fromEntries((parsed.exclusions as Array<{ path: string; reason: string }>).map(({ path: file, reason }) => [file, reason]));
       expect(reasons).toMatchObject({ 'src/generated/api.ts': 'ignored', 'tools/build.ts': 'ignored', 'vendor/lib.ts': 'ignored' });
       expect(reasons).not.toHaveProperty(['src/app.ts']);
@@ -375,7 +378,7 @@ describe('dhruv check documentation contract', () => {
       for (const row of keys.slice(1)) expect(JSON.parse(code(row.Default))).toEqual(defaults[code(row.Key)]);
     });
 
-    it('reads the policy from the HEAD commit, so a change can loosen its own review', async () => {
+    it('reads the policy from the base commit, so a change cannot loosen its own review', async () => {
       const policy = JSON.stringify({ schemaVersion: 1, exclude: ['src', 'dist'] });
       repo.commit({ [CHECK_POLICY_FILE]: policy }, 'exclude my own change');
       // An uncommitted edit must not take part.
@@ -383,21 +386,20 @@ describe('dhruv check documentation contract', () => {
 
       const loosened = await runDocumented(repo, ['dhruv', 'check', '--base', 'origin/main', '--json', '--strict-coverage']);
 
-      // As the guide warns: complete coverage and exit 0, with the evidence in the result.
+      // The reviewed branch's attempted exclusion has no effect.
       const parsed = json(loosened);
       expect(loosened.exitCode).toBe(0);
-      expect(client.requests).toHaveLength(0);
-      expect(parsed.policy).toMatchObject({ file: CHECK_POLICY_FILE, exclude: ['src', 'dist'] });
-      expect(parsed.coverage).toMatchObject({ analyzedFiles: 0, complete: true });
+      expect(client.requests).toHaveLength(1);
+      expect(parsed.policy).toMatchObject({ file: CHECK_POLICY_FILE, sourceCommit: repo.git('rev-parse', 'origin/main'), exclude: ['dist', '*.min.js'] });
+      expect(parsed.coverage).toMatchObject({ analyzedFiles: 1, complete: true });
       expect(parsed.exclusions).toEqual(expect.arrayContaining([
         { path: CHECK_POLICY_FILE, reason: 'unsupported' },
-        { path: 'src/payments/refund.ts', reason: 'ignored' },
       ]));
 
-      // And the documented remedy: a flag replaces the setting whatever the file says.
+      // A trusted flag still replaces the base policy setting for one run.
       const pinned = await runDocumented(repo, ['dhruv', 'check', '--base', 'origin/main', '--json', '--exclude', 'dist']);
       expect(json(pinned).policy).toMatchObject({ exclude: ['dist'], overrides: ['exclude'] });
-      expect(client.requests).toHaveLength(1);
+      expect(client.requests).toHaveLength(2);
     });
 
     it('lists the file types that are reviewed', () => {
@@ -502,7 +504,10 @@ describe('dhruv check documentation contract', () => {
         setAIClient(new FakeClient(() => { throw { kind: failure }; }));
         kinds.push(await kindOf(['--base', 'origin/main']));
       }
+      repo.git('checkout', '-q', 'main');
       repo.commit({ [CHECK_POLICY_FILE]: '{ "schemaVersion": 2 }' });
+      repo.git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+      repo.git('checkout', '-q', 'feature');
       kinds.push(await kindOf(['--base', 'origin/main']));
 
       expect(new Set(kinds).size).toBe(9);

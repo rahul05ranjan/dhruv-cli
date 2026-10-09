@@ -9,6 +9,8 @@
 import { spawnSync } from 'child_process';
 import { pathSelector } from './path-glob.js';
 import { CODE_FILE } from './source-ingestion.js';
+import { filePromptSection, PROMPT_OVERHEAD_BYTES, PROMPT_SEPARATOR_BYTES } from './check-prompt.js';
+import { walkUnifiedPatch } from './unified-patch.js';
 
 export interface LineRange {
   start: number;
@@ -18,9 +20,9 @@ export interface LineRange {
 export interface CommittedRangeLimits {
   /** Selected changed files beyond this count (in path order) are skipped. */
   maxChangedFiles: number;
-  /** A file's patch is cut at the last hunk boundary within this size, or skipped when no changed hunk fits. */
+  /** A file's rendered prompt section is cut at the last hunk boundary within this size. */
   maxFileBytes: number;
-  /** Files that would push the analyzed patches past this total are skipped. */
+  /** Files that would push the complete model prompt past this total are skipped. */
   maxTotalBytes: number;
 }
 
@@ -195,24 +197,12 @@ function parseRaw(output: string): RawEntry[] {
 /** Collects the new-side line numbers of `+` lines from a unified patch. */
 function parseChangedLines(patch: string): LineRange[] {
   const ranges: LineRange[] = [];
-  let line = 0;
-  let inHunk = false;
-  for (const text of patch.split('\n')) {
-    const header = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
-    if (header) {
-      line = Number(header[1]);
-      inHunk = true;
-    } else if (!inHunk || text.startsWith('\\')) {
-      continue;
-    } else if (text.startsWith('+')) {
-      const last = ranges[ranges.length - 1];
-      if (last && last.end === line - 1) last.end = line;
-      else ranges.push({ start: line, end: line });
-      line++;
-    } else if (text.startsWith(' ')) {
-      line++;
-    }
-  }
+  walkUnifiedPatch(patch, (_text, line, kind) => {
+    if (kind !== '+') return;
+    const last = ranges[ranges.length - 1];
+    if (last && last.end === line - 1) last.end = line;
+    else ranges.push({ start: line, end: line });
+  });
   return ranges;
 }
 
@@ -246,35 +236,35 @@ export function resolveCommittedRange({ base, cwd }: { base: string; cwd: string
 }
 
 /**
- * Reads a repository-relative file from the head commit, never from the working
+ * Reads a repository-relative file from the selected commit, never from the working
  * tree. Only a regular file within the size limit is read, so a symbolic link is
  * not followed and nothing outside the repository can be reached.
  */
-export function readCommittedFile(range: ResolvedRange, path: string, maxBytes: number): CommittedFileOutcome {
+export function readCommittedFile(range: ResolvedRange, path: string, maxBytes: number, commit = range.head): CommittedFileOutcome {
   const unusable = (problem: string): CommittedFileOutcome => ({ status: 'unusable', problem });
 
-  const entry = git(range.root, ['ls-tree', '-z', range.head, '--', path]);
-  if (entry.status !== 0) return unusable('could not be read from the head commit');
+  const entry = git(range.root, ['ls-tree', '-z', commit, '--', path]);
+  if (entry.status !== 0) return unusable('could not be read from the selected commit');
   if (!entry.stdout) return { status: 'absent' };
   const [mode, type, object] = entry.stdout.split('\t')[0].split(' ');
   if (type !== 'blob' || !mode.startsWith('100')) return unusable('must be a regular file');
 
   const size = git(range.root, ['cat-file', '-s', object]);
-  if (size.status !== 0) return unusable('could not be read from the head commit');
+  if (size.status !== 0) return unusable('could not be read from the selected commit');
   if (Number(size.stdout) > maxBytes) return unusable(`is larger than ${maxBytes} bytes`);
 
   const blob = git(range.root, ['cat-file', 'blob', object]);
-  return blob.status === 0 ? { status: 'read', content: blob.stdout } : unusable('could not be read from the head commit');
+  return blob.status === 0 ? { status: 'read', content: blob.stdout } : unusable('could not be read from the selected commit');
 }
 
-/** Keeps the leading hunks of a patch that fit the limit. */
-function fitHunks(patch: string, maxBytes: number): string {
+/** Keeps leading hunks whose fully rendered per-file prompt section fits. */
+function fitHunks(patch: string, file: Omit<RangeFile, 'patch' | 'changedLines'>, maxBytes: number): string {
   let kept = '';
-  let bytes = 0;
   for (const hunk of patch.split(/^(?=@@ )/m)) {
-    bytes += Buffer.byteLength(hunk);
-    if (bytes > maxBytes) break;
-    kept += hunk;
+    const candidate = kept + hunk;
+    const rendered = filePromptSection({ ...file, patch: candidate, changedLines: parseChangedLines(candidate) });
+    if (Buffer.byteLength(rendered) > maxBytes) break;
+    kept = candidate;
   }
   return kept;
 }
@@ -293,7 +283,7 @@ export function ingestCommittedRange(range: ResolvedRange, selection: Partial<Ra
   const files: RangeFile[] = [];
   const exclusions: RangeExclusion[] = [];
   let considered = 0;
-  let totalBytes = 0;
+  let totalBytes = PROMPT_OVERHEAD_BYTES;
   const exclude = (path: string, reason: ExclusionReason) => exclusions.push({ path, reason });
 
   entries.forEach((entry) => {
@@ -312,13 +302,15 @@ export function ingestCommittedRange(range: ResolvedRange, selection: Partial<Ra
     const full = start === -1 ? '' : diff.stdout.slice(start);
     if (parseChangedLines(full).length === 0) return exclude(entry.path, 'no-line-changes');
 
-    const patch = fitHunks(full, limits.maxFileBytes);
+    const file = { path: entry.path, oldPath: entry.oldPath, status: entry.status };
+    const patch = fitHunks(full, file, limits.maxFileBytes);
     const changedLines = parseChangedLines(patch);
     if (changedLines.length === 0) return exclude(entry.path, 'oversized');
-    const bytes = Buffer.byteLength(patch);
+    const selectedFile = { ...file, changedLines, patch };
+    const bytes = Buffer.byteLength(filePromptSection(selectedFile)) + (files.length > 0 ? PROMPT_SEPARATOR_BYTES : 0);
     if (totalBytes + bytes > limits.maxTotalBytes) return exclude(entry.path, 'total-limit');
     totalBytes += bytes;
-    files.push({ path: entry.path, oldPath: entry.oldPath, status: entry.status, changedLines, patch });
+    files.push(selectedFile);
     if (patch.length < full.length) exclude(entry.path, 'truncated');
   });
 
