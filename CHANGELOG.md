@@ -1,3 +1,18 @@
+# [1.13.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.12.0...v1.13.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* **nano:** honor Git subroots and exact path evidence ([14f0f6b](https://github.com/rahul05ranjan/dhruv-cli/commit/14f0f6bf3578469dd28213a57ee5ef2926ad4cae))
+* **nano:** merge review fixes for Git subroots and path evidence ([9ad983a](https://github.com/rahul05ranjan/dhruv-cli/commit/9ad983a0085355756ac41e161e05c3c68f384f44))
+* **nano:** preserve discovery error causes ([4f85725](https://github.com/rahul05ranjan/dhruv-cli/commit/4f85725ff3d1006b58969f683fbcd2ffade95c71))
+
+
+### Features
+
+* **nano:** add isolated lexical context command ([2759f20](https://github.com/rahul05ranjan/dhruv-cli/commit/2759f209a59626b969e0d5f87d3ad330c86c0cb3))
+* **nano:** bound deterministic context responses ([548e79c](https://github.com/rahul05ranjan/dhruv-cli/commit/548e79ca1df55fc479c00d012148e586c4343720))
+
 # [1.12.0](https://github.com/rahul05ranjan/dhruv-cli/compare/v1.11.0...v1.12.0) (2026-09-27)
 
 
