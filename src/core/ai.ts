@@ -7,8 +7,8 @@
  *
  * Everything else — connection handling, streaming, caching, error
  * translation — is implementation. Two adapters satisfy the interface:
- * the HTTP adapter (production, talks to the local Ollama server) and the
- * in-memory adapter (tests). No third adapter exists.
+ * the HTTP adapter (production, talks to the Ollama server at `OLLAMA_HOST`,
+ * local by default) and the in-memory adapter (tests). No third adapter exists.
  */
 import { Ollama } from 'ollama';
 import fs from 'fs';
@@ -41,6 +41,13 @@ export interface AIRequest {
 export interface AIClient {
   ask(request: AIRequest): Promise<string>;
   listModels(): Promise<string[]>;
+}
+
+const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
+
+/** The Ollama server that generation and the status probe both talk to: `OLLAMA_HOST`, or the local default. */
+function ollamaEndpoint(): string {
+  return (process.env.OLLAMA_HOST || DEFAULT_OLLAMA_ENDPOINT).replace(/\/$/, '');
 }
 
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -130,7 +137,7 @@ export class OllamaAIClient implements AIClient {
   private client: Ollama;
 
   constructor(client?: Ollama) {
-    this.client = client ?? new Ollama();
+    this.client = client ?? new Ollama({ host: ollamaEndpoint() });
   }
 
   async ask(request: AIRequest): Promise<string> {
@@ -268,7 +275,7 @@ export interface OllamaStatus {
 }
 
 export async function getOllamaStatus(): Promise<OllamaStatus> {
-  const endpoint = (process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434').replace(/\/$/, '');
+  const endpoint = ollamaEndpoint();
   try {
     const response = await fetch(`${endpoint}/api/version`, { signal: AbortSignal.timeout(1000) });
     if (!response.ok) return { endpoint };
