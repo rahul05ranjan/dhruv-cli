@@ -7,6 +7,7 @@
  * print, set exit codes, or ask the AI. Presentation belongs to the caller.
  */
 import { spawnSync } from 'child_process';
+import { pathSelector } from './path-glob.js';
 import { CODE_FILE } from './source-ingestion.js';
 
 export interface LineRange {
@@ -15,12 +16,18 @@ export interface LineRange {
 }
 
 export interface CommittedRangeLimits {
-  /** Changed files beyond this count (in path order) are skipped. */
+  /** Selected changed files beyond this count (in path order) are skipped. */
   maxChangedFiles: number;
-  /** A file whose patch is larger than this is skipped. */
+  /** A file's patch is cut at the last hunk boundary within this size, or skipped when no changed hunk fits. */
   maxFileBytes: number;
   /** Files that would push the analyzed patches past this total are skipped. */
   maxTotalBytes: number;
+}
+
+/** Which changed files take part, and how much of them. Globs follow `path-glob.ts`. */
+export interface RangeSelection extends CommittedRangeLimits {
+  include: readonly string[];
+  exclude: readonly string[];
 }
 
 export const DEFAULT_RANGE_LIMITS: CommittedRangeLimits = {
@@ -44,35 +51,58 @@ export interface RangeFile {
 }
 
 /**
- * Why a changed file was not analyzed. `deleted`, `binary`, `unsupported` and
- * `no-line-changes` are irrelevant to a source review; the others mean relevant
- * source went unreviewed and coverage is incomplete.
+ * Why a changed file was not analyzed in full, in reporting order.
+ *
+ * `ignored` (left out by the include and exclude globs), `deleted`, `binary`,
+ * `unsupported` (not a source file type) and `no-line-changes` (a pure rename or
+ * mode change) are irrelevant to a source review. The others mean relevant source
+ * went unreviewed and coverage is incomplete: `unreadable` (Git could not produce
+ * the patch), `oversized` (not even the first changed hunk fits the per-file
+ * limit), `file-limit`, `total-limit`, and `truncated` (analyzed up to the
+ * per-file limit; the remaining hunks were not).
  */
-export type SkipReason = 'deleted' | 'binary' | 'unsupported' | 'no-line-changes' | 'oversized' | 'file-limit' | 'total-limit';
+export const EXCLUSION_REASONS = [
+  'ignored', 'deleted', 'binary', 'unsupported', 'no-line-changes',
+  'unreadable', 'oversized', 'file-limit', 'total-limit', 'truncated',
+] as const;
 
-const COVERAGE_BREAKING: readonly SkipReason[] = ['oversized', 'file-limit', 'total-limit'];
+export type ExclusionReason = (typeof EXCLUSION_REASONS)[number];
 
-export interface SkippedFile {
+const COVERAGE_BREAKING: readonly ExclusionReason[] = ['unreadable', 'oversized', 'file-limit', 'total-limit', 'truncated'];
+
+export interface RangeExclusion {
   path: string;
-  reason: SkipReason;
+  reason: ExclusionReason;
 }
 
 export interface RangeCoverage {
   changedFiles: number;
+  /** Files sent for analysis, truncated ones included. */
   analyzedFiles: number;
+  /** Files not analyzed at all. */
   skippedFiles: number;
-  /** False when relevant changed source was skipped. */
+  /** Analyzed files whose patch was cut short. */
+  truncatedFiles: number;
+  /** False when relevant changed source was skipped or truncated. */
   complete: boolean;
+  /** How many exclusions carry each reason. */
+  byReason: Record<ExclusionReason, number>;
 }
 
-export interface CommittedRange {
+/** The commits a range runs between, resolved once so everything reads the same `HEAD`. */
+export interface ResolvedRange {
+  /** Top-level directory of the repository. */
+  root: string;
   base: { ref: string; commit: string };
   mergeBase: string;
   head: string;
+}
+
+export interface CommittedRange extends Omit<ResolvedRange, 'root'> {
   /** Analyzed files, in path order. */
   files: RangeFile[];
-  /** Every changed file that was not analyzed, in path order. */
-  skipped: SkippedFile[];
+  /** Every changed file that was skipped or truncated, in path order. */
+  exclusions: RangeExclusion[];
   coverage: RangeCoverage;
 }
 
@@ -84,9 +114,20 @@ export type CommittedRangeFailureReason =
   | 'not-a-repository'
   | 'git-error';
 
-export type CommittedRangeOutcome =
-  | ({ ok: true } & CommittedRange)
-  | { ok: false; reason: CommittedRangeFailureReason; message: string };
+interface CommittedRangeFailure {
+  ok: false;
+  reason: CommittedRangeFailureReason;
+  message: string;
+}
+
+export type ResolvedRangeOutcome = ({ ok: true } & ResolvedRange) | CommittedRangeFailure;
+
+export type CommittedRangeOutcome = ({ ok: true } & CommittedRange) | CommittedRangeFailure;
+
+export type CommittedFileOutcome =
+  | { status: 'absent' }
+  | { status: 'read'; content: string }
+  | { status: 'unusable'; problem: string };
 
 export const RANGE_CONTEXT_LINES = 10;
 
@@ -115,7 +156,7 @@ function git(cwd: string, args: string[]): GitResult {
   return { status: result.status, stdout: result.stdout ?? '', missing: code === 'ENOENT' };
 }
 
-function failure(reason: CommittedRangeFailureReason, message: string): CommittedRangeOutcome {
+function failure(reason: CommittedRangeFailureReason, message: string): CommittedRangeFailure {
   return { ok: false, reason, message };
 }
 
@@ -174,15 +215,8 @@ function parseChangedLines(patch: string): LineRange[] {
   return ranges;
 }
 
-export interface IngestCommittedRangeOptions {
-  base: string;
-  cwd: string;
-  limits?: Partial<CommittedRangeLimits>;
-}
-
-export function ingestCommittedRange({ base, cwd, limits: overrides }: IngestCommittedRangeOptions): CommittedRangeOutcome {
-  const limits = { ...DEFAULT_RANGE_LIMITS, ...overrides };
-
+/** Resolves `base`, `HEAD` and their merge base. Fails when the range cannot be established. */
+export function resolveCommittedRange({ base, cwd }: { base: string; cwd: string }): ResolvedRangeOutcome {
   if (!base.trim() || base.startsWith('-')) {
     return failure('invalid-ref', `"${base}" is not a valid Git ref for --base.`);
   }
@@ -206,52 +240,104 @@ export function ingestCommittedRange({ base, cwd, limits: overrides }: IngestCom
     return failure('no-merge-base', `No merge base between "${base}" and HEAD. In a shallow checkout, fetch more history (for example, fetch-depth: 0).`);
   }
   if (mergeBase.status !== 0) return failure('git-error', `Git could not compute the merge base of "${base}" and HEAD.`);
-  const mergeBaseSha = mergeBase.stdout.trim();
+
+  return { ok: true, root, base: { ref: base, commit: baseSha }, mergeBase: mergeBase.stdout.trim(), head: headSha };
+}
+
+/**
+ * Reads a repository-relative file from the head commit, never from the working
+ * tree. Only a regular file within the size limit is read, so a symbolic link is
+ * not followed and nothing outside the repository can be reached.
+ */
+export function readCommittedFile(range: ResolvedRange, path: string, maxBytes: number): CommittedFileOutcome {
+  const unusable = (problem: string): CommittedFileOutcome => ({ status: 'unusable', problem });
+
+  const entry = git(range.root, ['ls-tree', '-z', range.head, '--', path]);
+  if (entry.status !== 0) return unusable('could not be read from the head commit');
+  if (!entry.stdout) return { status: 'absent' };
+  const [mode, type, object] = entry.stdout.split('\t')[0].split(' ');
+  if (type !== 'blob' || !mode.startsWith('100')) return unusable('must be a regular file');
+
+  const size = git(range.root, ['cat-file', '-s', object]);
+  if (size.status !== 0) return unusable('could not be read from the head commit');
+  if (Number(size.stdout) > maxBytes) return unusable(`is larger than ${maxBytes} bytes`);
+
+  const blob = git(range.root, ['cat-file', 'blob', object]);
+  return blob.status === 0 ? { status: 'read', content: blob.stdout } : unusable('could not be read from the head commit');
+}
+
+/** Keeps the leading hunks of a patch that fit the limit. */
+function fitHunks(patch: string, maxBytes: number): string {
+  let kept = '';
+  let bytes = 0;
+  for (const hunk of patch.split(/^(?=@@ )/m)) {
+    bytes += Buffer.byteLength(hunk);
+    if (bytes > maxBytes) break;
+    kept += hunk;
+  }
+  return kept;
+}
+
+/** States what changed in a resolved range. Selection and limits apply in path order. */
+export function ingestCommittedRange(range: ResolvedRange, selection: Partial<RangeSelection> = {}): CommittedRangeOutcome {
+  const { root, base, mergeBase, head } = range;
+  const limits = { ...DEFAULT_RANGE_LIMITS, ...selection };
+  const selected = pathSelector(selection.include ?? ['**'], selection.exclude ?? []);
 
   const diffFlags = ['--no-ext-diff', '--no-textconv', '--no-color', '-M'];
-  const raw = git(root, ['diff', '--raw', '-z', ...diffFlags, mergeBaseSha, headSha, '--']);
+  const raw = git(root, ['diff', '--raw', '-z', ...diffFlags, mergeBase, head, '--']);
   if (raw.status !== 0) return failure('git-error', 'Git could not list the changed files.');
   const entries = parseRaw(raw.stdout);
 
   const files: RangeFile[] = [];
-  const skipped: SkippedFile[] = [];
+  const exclusions: RangeExclusion[] = [];
+  let considered = 0;
   let totalBytes = 0;
-  const skip = (path: string, reason: SkipReason) => skipped.push({ path, reason });
+  const exclude = (path: string, reason: ExclusionReason) => exclusions.push({ path, reason });
 
-  entries.forEach((entry, index) => {
-    if (entry.status === 'deleted') return skip(entry.path, 'deleted');
-    if (!CODE_FILE.test(entry.path)) return skip(entry.path, 'unsupported');
-    if (index >= limits.maxChangedFiles) return skip(entry.path, 'file-limit');
+  entries.forEach((entry) => {
+    if (!selected(entry.path)) return exclude(entry.path, 'ignored');
+    const position = considered++;
+    if (entry.status === 'deleted') return exclude(entry.path, 'deleted');
+    if (!CODE_FILE.test(entry.path)) return exclude(entry.path, 'unsupported');
+    if (position >= limits.maxChangedFiles) return exclude(entry.path, 'file-limit');
 
     const paths = entry.oldPath ? [entry.oldPath, entry.path] : [entry.path];
-    const diff = git(root, ['diff', `--unified=${RANGE_CONTEXT_LINES}`, ...diffFlags, mergeBaseSha, headSha, '--', ...paths]);
-    if (diff.status !== 0) return skip(entry.path, 'no-line-changes');
-    if (/^Binary files /m.test(diff.stdout) || /^GIT binary patch/m.test(diff.stdout)) return skip(entry.path, 'binary');
+    const diff = git(root, ['diff', `--unified=${RANGE_CONTEXT_LINES}`, ...diffFlags, mergeBase, head, '--', ...paths]);
+    if (diff.status !== 0) return exclude(entry.path, 'unreadable');
+    if (/^Binary files /m.test(diff.stdout) || /^GIT binary patch/m.test(diff.stdout)) return exclude(entry.path, 'binary');
 
     const start = diff.stdout.search(/^@@ /m);
-    const patch = start === -1 ? '' : diff.stdout.slice(start);
-    const changedLines = parseChangedLines(patch);
-    if (changedLines.length === 0) return skip(entry.path, 'no-line-changes');
+    const full = start === -1 ? '' : diff.stdout.slice(start);
+    if (parseChangedLines(full).length === 0) return exclude(entry.path, 'no-line-changes');
 
+    const patch = fitHunks(full, limits.maxFileBytes);
+    const changedLines = parseChangedLines(patch);
+    if (changedLines.length === 0) return exclude(entry.path, 'oversized');
     const bytes = Buffer.byteLength(patch);
-    if (bytes > limits.maxFileBytes) return skip(entry.path, 'oversized');
-    if (totalBytes + bytes > limits.maxTotalBytes) return skip(entry.path, 'total-limit');
+    if (totalBytes + bytes > limits.maxTotalBytes) return exclude(entry.path, 'total-limit');
     totalBytes += bytes;
     files.push({ path: entry.path, oldPath: entry.oldPath, status: entry.status, changedLines, patch });
+    if (patch.length < full.length) exclude(entry.path, 'truncated');
   });
+
+  const byReason = Object.fromEntries(EXCLUSION_REASONS.map((reason) => [reason, 0])) as Record<ExclusionReason, number>;
+  for (const { reason } of exclusions) byReason[reason]++;
 
   return {
     ok: true,
-    base: { ref: base, commit: baseSha },
-    mergeBase: mergeBaseSha,
-    head: headSha,
+    base,
+    mergeBase,
+    head,
     files,
-    skipped,
+    exclusions,
     coverage: {
       changedFiles: entries.length,
       analyzedFiles: files.length,
-      skippedFiles: skipped.length,
-      complete: !skipped.some(({ reason }) => COVERAGE_BREAKING.includes(reason)),
+      skippedFiles: exclusions.length - byReason.truncated,
+      truncatedFiles: byReason.truncated,
+      complete: !COVERAGE_BREAKING.some((reason) => byReason[reason] > 0),
+      byReason,
     },
   };
 }

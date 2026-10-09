@@ -3,18 +3,21 @@ import { ask, AIError, AIRequest } from '../core/ai.js';
 import { describeAIError } from '../core/command-runner.js';
 import { getSystemMessage } from '../core/prompts.js';
 import { securityManager } from '../core/security.js';
-import { ingestCommittedRange, type CommittedRangeLimits, type RangeFile } from '../core/committed-range.js';
+import { ingestCommittedRange, readCommittedFile, resolveCommittedRange, type RangeFile } from '../core/committed-range.js';
 import { CHECK_SEVERITIES, readFindings, summarizeFindings } from '../core/check-findings.js';
+import { CHECK_POLICY_FILE, MAX_POLICY_BYTES, resolveCheckPolicy, type CheckPolicyOverrides } from '../core/check-policy.js';
 import { presentCheckResult, type CheckRangeFacts, type CheckResult } from '../core/check-presentation.js';
 
-export interface CheckOptions {
+/** Options as Commander parses them. The policy settings override the checked-in policy for this run only. */
+export interface CheckOptions extends CheckPolicyOverrides {
   base?: string;
+  /** Turns incomplete coverage into its own failing outcome. */
+  strictCoverage?: boolean;
 }
 
-/** Seams for tests and later policy support. */
+/** Seams for tests. */
 export interface CheckDeps {
   cwd?: string;
-  limits?: Partial<CommittedRangeLimits>;
 }
 
 function formatRanges(file: RangeFile): string {
@@ -96,6 +99,17 @@ function aiFailure(error: unknown, facts: CheckRangeFacts): CheckResult {
   };
 }
 
+function invalidPolicy(problems: string[]): CheckResult {
+  return {
+    status: 'error',
+    error: {
+      kind: 'invalid-policy',
+      message: `Invalid policy ${CHECK_POLICY_FILE}: ${problems.join('; ')}.`,
+      hint: `Fix ${CHECK_POLICY_FILE} and commit it; the policy is read from the HEAD commit.`,
+    },
+  };
+}
+
 /** Reviews committed changes from the merge base of `--base` and HEAD. Advisory: findings never fail the run. */
 export async function check(options: CheckOptions = {}, deps: CheckDeps = {}): Promise<void> {
   try {
@@ -113,17 +127,33 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
     return { status: 'error', error: { kind: 'invalid-input', message: 'Missing required option --base <git-ref>.', hint: 'Example: dhruv check --base origin/main' } };
   }
 
-  const range = ingestCommittedRange({ base: options.base, cwd: deps.cwd ?? process.cwd(), limits: deps.limits });
+  const resolved = resolveCommittedRange({ base: options.base, cwd: deps.cwd ?? process.cwd() });
+  if (!resolved.ok) return { status: 'error', error: { kind: resolved.reason, message: resolved.message } };
+
+  // The policy is data from the reviewed commit: it is parsed, never executed, and settled before any AI request.
+  const policyFile = readCommittedFile(resolved, CHECK_POLICY_FILE, MAX_POLICY_BYTES);
+  if (policyFile.status === 'unusable') return invalidPolicy([`the file ${policyFile.problem}`]);
+  const resolution = resolveCheckPolicy(policyFile.status === 'read' ? policyFile.content : undefined, options);
+  if (!resolution.ok) {
+    if (resolution.source === 'file') return invalidPolicy(resolution.problems);
+    return { status: 'error', error: { kind: 'invalid-input', message: `Invalid option: ${resolution.problems.join('; ')}.`, hint: 'Run: dhruv check --help' } };
+  }
+  const { policy } = resolution;
+
+  const range = ingestCommittedRange(resolved, policy);
   if (!range.ok) return { status: 'error', error: { kind: range.reason, message: range.message } };
 
   const config = loadConfig();
   const facts: CheckRangeFacts = {
     refs: { base: range.base, mergeBase: range.mergeBase, head: range.head },
     model: config.model,
+    policy,
     coverage: range.coverage,
-    exclusions: range.skipped,
+    exclusions: range.exclusions,
   };
-  if (range.files.length === 0) return { status: 'ok', ...facts, summary: summarizeFindings([]), findings: [] };
+  // Zero findings never stands in for coverage: strict coverage fails on what went unreviewed.
+  const status = options.strictCoverage && !range.coverage.complete ? 'incomplete' : 'ok';
+  if (range.files.length === 0) return { status, ...facts, summary: summarizeFindings([]), findings: [] };
 
   // The allowlist gates AI access. Validate the resolved commit IDs, never the free-form ref.
   const validation = securityManager.validateInput('check', { base: range.base.commit, head: range.head });
@@ -146,7 +176,7 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
   }
 
   // The response itself is never echoed: an unusable one is reported by kind only.
-  const outcome = readFindings(response, range.files);
+  const outcome = readFindings(response, range.files, policy.minSeverity);
   if (!outcome.ok) {
     return {
       status: 'error',
@@ -154,5 +184,5 @@ async function runCheck(options: CheckOptions, deps: CheckDeps): Promise<CheckRe
       error: { kind: 'invalid-response', message: outcome.message, hint: 'Run the check again, or choose a more capable model with --model.' },
     };
   }
-  return { status: 'ok', ...facts, summary: outcome.summary, findings: outcome.findings };
+  return { status, ...facts, summary: outcome.summary, findings: outcome.findings };
 }

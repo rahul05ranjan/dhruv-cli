@@ -31,7 +31,7 @@ export interface CheckFinding {
 }
 
 export interface FindingSummary {
-  /** Findings reported after validation and deduplication. */
+  /** Findings reported after validation, deduplication and the minimum severity. */
   findings: number;
   bySeverity: Record<CheckSeverity, number>;
   /** Candidates the model returned; equals `findings` plus everything omitted. */
@@ -43,6 +43,8 @@ export interface FindingSummary {
     offDiff: number;
     /** Repeats of a reported finding. */
     duplicate: number;
+    /** Valid findings less severe than the minimum severity shown. */
+    belowMinSeverity: number;
   };
 }
 
@@ -53,13 +55,13 @@ export type FindingsOutcome =
 const MAX_REASON_LENGTH = 200;
 const MAX_DETAIL_LENGTH = 500;
 
-export function summarizeFindings(findings: CheckFinding[], omitted = { invalid: 0, offDiff: 0, duplicate: 0 }): FindingSummary {
+export function summarizeFindings(findings: CheckFinding[], omitted = { invalid: 0, offDiff: 0, duplicate: 0, belowMinSeverity: 0 }): FindingSummary {
   const bySeverity = Object.fromEntries(CHECK_SEVERITIES.map((severity) => [severity, 0])) as Record<CheckSeverity, number>;
   for (const { severity } of findings) bySeverity[severity]++;
   return {
     findings: findings.length,
     bySeverity,
-    candidates: findings.length + omitted.invalid + omitted.offDiff + omitted.duplicate,
+    candidates: findings.length + omitted.invalid + omitted.offDiff + omitted.duplicate + omitted.belowMinSeverity,
     omitted,
   };
 }
@@ -109,9 +111,10 @@ function issueKey(finding: CheckFinding): string {
 
 /**
  * Validates the model response against the analyzed files. The run fails when
- * the response as a whole is unusable; single bad candidates are only counted.
+ * the response as a whole is unusable; single bad candidates are only counted,
+ * as are findings less severe than `minSeverity`.
  */
-export function readFindings(response: string, files: RangeFile[]): FindingsOutcome {
+export function readFindings(response: string, files: RangeFile[], minSeverity: CheckSeverity = 'info'): FindingsOutcome {
   const parsed = parseResponse(response);
   const candidates = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
     ? (parsed as { findings?: unknown }).findings
@@ -121,7 +124,7 @@ export function readFindings(response: string, files: RangeFile[]): FindingsOutc
   }
 
   const byPath = new Map(files.map((file) => [file.path, file]));
-  const omitted = { invalid: 0, offDiff: 0, duplicate: 0 };
+  const omitted = { invalid: 0, offDiff: 0, duplicate: 0, belowMinSeverity: 0 };
   const valid: CheckFinding[] = [];
 
   for (const candidate of candidates as unknown[]) {
@@ -152,13 +155,16 @@ export function readFindings(response: string, files: RangeFile[]): FindingsOutc
     || compare(a.reason, b.reason) || compare(a.evidence, b.evidence) || compare(a.recommendation, b.recommendation));
 
   const seen = new Set<string>();
-  const findings = valid.filter((finding) => {
+  const distinct = valid.filter((finding) => {
     const key = JSON.stringify([finding.path, finding.line, issueKey(finding)]);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  omitted.duplicate = valid.length - findings.length;
+  omitted.duplicate = valid.length - distinct.length;
+
+  const findings = distinct.filter((finding) => rank(finding) <= CHECK_SEVERITIES.indexOf(minSeverity));
+  omitted.belowMinSeverity = distinct.length - findings.length;
 
   return { ok: true, findings, summary: summarizeFindings(findings, omitted) };
 }
