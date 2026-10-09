@@ -1,9 +1,9 @@
 {
-  "date": "2026-10-09T03:56:12.862Z",
+  "date": "2026-10-09T16:52:23.827Z",
   "manifestSha256": "b30da074f31a3bc8074bb2d74486f922e342ef7cf170746639a228aff33eece1",
-  "packageSha256": "18743622ed3b047151cacf76fc23422c396b91e5d2a971281c0a571b3ad5b060",
-  "packageBytes": 67050,
-  "node": "v24.15.0",
+  "packageSha256": "059b20338f10cc02fe36cc5a50aa8669d2c77c18164e08d606aa0979e1023931",
+  "packageBytes": 67949,
+  "node": "v24.14.0",
   "os": "darwin 27.0.0",
   "repositories": [
     {
@@ -258,8 +258,8 @@
           },
           "truncated": true,
           "indexFreshness": "fresh",
-          "coldMs": 541.156875,
-          "warmMs": 512.365958
+          "coldMs": 521.316125,
+          "warmMs": 477.188834
         },
         {
           "id": "dhruv-index",
@@ -444,8 +444,8 @@
           },
           "truncated": true,
           "indexFreshness": "fresh",
-          "coldMs": 511.034334,
-          "warmMs": 511.634417
+          "coldMs": 480.144792,
+          "warmMs": 471.044917
         },
         {
           "id": "dhruv-completion",
@@ -584,8 +584,8 @@
           },
           "truncated": true,
           "indexFreshness": "fresh",
-          "coldMs": 498.3255,
-          "warmMs": 501.999708
+          "coldMs": 472.464291,
+          "warmMs": 478.712875
         },
         {
           "id": "dhruv-negative",
@@ -612,8 +612,8 @@
           },
           "truncated": false,
           "indexFreshness": "fresh",
-          "coldMs": 485.138458,
-          "warmMs": 492.326125
+          "coldMs": 475.501625,
+          "warmMs": 456.86475
         }
       ],
       "summary": {
@@ -795,8 +795,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 439.001334,
-          "warmMs": 439.210042
+          "coldMs": 403.819375,
+          "warmMs": 406.37925
         },
         {
           "id": "commander-env",
@@ -1012,8 +1012,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 440.722334,
-          "warmMs": 439.323958
+          "coldMs": 406.855209,
+          "warmMs": 407.997333
         },
         {
           "id": "commander-similar",
@@ -1167,8 +1167,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 442.923583,
-          "warmMs": 442.968875
+          "coldMs": 405.784291,
+          "warmMs": 405.929333
         },
         {
           "id": "commander-negative",
@@ -1207,8 +1207,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 426.219916,
-          "warmMs": 427.119167
+          "coldMs": 393.807291,
+          "warmMs": 406.766292
         }
       ],
       "summary": {
@@ -1398,8 +1398,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 1056.138042,
-          "warmMs": 969.552667
+          "coldMs": 991.472541,
+          "warmMs": 894.53
         },
         {
           "id": "execa-duplex",
@@ -1584,8 +1584,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 959.73275,
-          "warmMs": 962.413333
+          "coldMs": 903.256209,
+          "warmMs": 892.305417
         },
         {
           "id": "execa-file-url",
@@ -1694,8 +1694,8 @@
           },
           "truncated": true,
           "indexFreshness": "partial",
-          "coldMs": 960.182833,
-          "warmMs": 950.011708
+          "coldMs": 881.591209,
+          "warmMs": 892.076125
         },
         {
           "id": "execa-negative",
@@ -1714,8 +1714,8 @@
           },
           "truncated": false,
           "indexFreshness": "partial",
-          "coldMs": 950.564625,
-          "warmMs": 953.031333
+          "coldMs": 885.686834,
+          "warmMs": 886.798541
         }
       ],
       "summary": {
