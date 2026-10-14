@@ -61,7 +61,7 @@
     "joi": "^18.2.9",
     "node-fetch": "^3.3.2",
     "ollama": "^0.5.16",
-    "ora": "^8.2.0",
+    "ora": "^9.4.1",
     "prom-client": "^15.1.3",
     "typescript": "^5.8.3",
     "validator": "^13.15.35",
