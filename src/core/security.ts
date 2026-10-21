@@ -18,6 +18,28 @@ export class SecurityManager {
   private requestCounts: Map<string, { count: number; resetTime: number }> = new Map();
   private schemas: { [key: string]: Joi.ObjectSchema } = {};
 
+  /**
+   * A bounded, secret-masked view of refused input for security logs (#188).
+   * The blocked-pattern rules exist to keep credentials out of the request, so
+   * the audit entry must not persist them verbatim.
+   */
+  private static redactForLog(input: unknown, maxLength = 200): string {
+    let text: string;
+    try {
+      text = typeof input === 'string' ? input : JSON.stringify(input) ?? String(input);
+    } catch {
+      return '(unserializable input)';
+    }
+    return (
+      text
+        .replace(/(password\s*[=:]\s*['"]?)[^'"\s,;&}]+/gi, '$1***')
+        .replace(/((?:api[_-]?key|token|secret|credential)\s*[=:]\s*['"]?)[^'"\s,;&}]+/gi, '$1***')
+        .replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1***')
+        .replace(/(:\/\/[^\s/@]+:)[^@\s]+(?=@)/g, '$1***')
+        .slice(0, maxLength) + (text.length > maxLength ? '… (truncated)' : '')
+    );
+  }
+
   private constructor() {
     this.config = {
       enableInputValidation: process.env.DHRUV_SECURITY_VALIDATION !== 'false',
@@ -127,7 +149,7 @@ export class SecurityManager {
       // Check command is allowed
       if (!this.config.allowedCommands.includes(command)) {
         const error = `Command '${command}' is not allowed`;
-        logSecurity('blocked_command', { command, input });
+        logSecurity('blocked_command', { command, input: SecurityManager.redactForLog(input) });
         metricsCollector.recordError('blocked_command', command);
         return { valid: false, error };
       }
@@ -142,7 +164,7 @@ export class SecurityManager {
       const { error } = schema.validate(input, { abortEarly: false });
       if (error) {
         const errorMessage = error.details.map((d: any) => d.message).join(', ');
-        logSecurity('invalid_input', { command, input, error: errorMessage });
+        logSecurity('invalid_input', { command, input: SecurityManager.redactForLog(input), error: errorMessage });
         metricsCollector.recordError('invalid_input', command);
         return { valid: false, error: errorMessage };
       }
@@ -152,7 +174,7 @@ export class SecurityManager {
       for (const pattern of this.config.blockedPatterns) {
         if (pattern.test(inputString)) {
           const error = 'Input contains blocked patterns';
-          logSecurity('blocked_pattern', { command, input, pattern: pattern.toString() });
+          logSecurity('blocked_pattern', { command, input: SecurityManager.redactForLog(input), pattern: pattern.toString() });
           metricsCollector.recordError('blocked_pattern', command);
           return { valid: false, error };
         }
@@ -161,13 +183,13 @@ export class SecurityManager {
       // Sanitize input
       const sanitized = this.sanitizeInput(input);
       if (JSON.stringify(sanitized) !== JSON.stringify(input)) {
-        logger.warn('Input was sanitized', { command, original: input, sanitized });
+        logger.warn('Input was sanitized', { command, original: SecurityManager.redactForLog(input), sanitized });
       }
 
       return { valid: true };
     } catch (err) {
       const error = `Validation error: ${(err as Error).message}`;
-      logSecurity('validation_error', { command, input, error });
+      logSecurity('validation_error', { command, input: SecurityManager.redactForLog(input), error });
       metricsCollector.recordError('validation_error', command);
       return { valid: false, error };
     }
