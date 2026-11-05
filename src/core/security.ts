@@ -180,12 +180,6 @@ export class SecurityManager {
         }
       }
 
-      // Sanitize input
-      const sanitized = this.sanitizeInput(input);
-      if (JSON.stringify(sanitized) !== JSON.stringify(input)) {
-        logger.warn('Input was sanitized', { command, original: SecurityManager.redactForLog(input), sanitized });
-      }
-
       return { valid: true };
     } catch (err) {
       const error = `Validation error: ${(err as Error).message}`;
